@@ -10,8 +10,7 @@
         "Makefile",
         "help.txt",
         ".clang-format",
-        "README.md",
-        "MODULE.bazel"
+        "README.md"
       ],
       "allow": true
     },
