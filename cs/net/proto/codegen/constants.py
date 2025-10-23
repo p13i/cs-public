@@ -1,4 +1,0 @@
-VECTOR_NUM_ELEMS = 2 << 1
-NEWLINE = "\n"
-QUOTE = '"'
-BACKSLASH = "\\"

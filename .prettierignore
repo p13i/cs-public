@@ -1,5 +1,0 @@
-bazel*
-data/
-ext/
-.venv/
-node_modules/
