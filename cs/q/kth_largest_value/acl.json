@@ -1,0 +1,14 @@
+{
+  "policies": [
+    {
+      "principals": ["*"],
+      "resources": ["cs/q/kth_largest_value/acl.json"],
+      "allow": false
+    },
+    {
+      "principals": ["*"],
+      "resources": ["*"],
+      "allow": true
+    }
+  ]
+}

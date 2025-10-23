@@ -1,0 +1,14 @@
+{
+  "policies": [
+    {
+      "principals": ["*"],
+      "resources": ["cs/q/search_big_array/acl.json"],
+      "allow": false
+    },
+    {
+      "principals": ["*"],
+      "resources": ["*"],
+      "allow": true
+    }
+  ]
+}

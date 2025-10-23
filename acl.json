@@ -1,0 +1,23 @@
+{
+  "policies": [
+    {
+      "principals": ["*"],
+      "resources": [
+        "cs",
+        ".devcontainer",
+        ".github",
+        "Dockerfile",
+        "Makefile",
+        "help.txt",
+        ".clang-format",
+        "README.md"
+      ],
+      "allow": true
+    },
+    {
+      "principals": ["*"],
+      "resources": ["*"],
+      "allow": false
+    }
+  ]
+}

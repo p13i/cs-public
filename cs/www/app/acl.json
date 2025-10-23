@@ -1,0 +1,18 @@
+{
+  "policies": [
+    {
+      "principals": ["*"],
+      "resources": [
+        "cs/www/app/acl.json",
+        "cs/www/app/protos",
+        "cs/www/app/emscripten"
+      ],
+      "allow": true
+    },
+    {
+      "principals": ["*"],
+      "resources": ["*"],
+      "allow": false
+    }
+  ]
+}

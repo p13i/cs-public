@@ -1,0 +1,14 @@
+{
+  "policies": [
+    {
+      "principals": ["*"],
+      "resources": ["acl.json"],
+      "allow": false
+    },
+    {
+      "principals": ["*"],
+      "resources": ["*"],
+      "allow": true
+    }
+  ]
+}

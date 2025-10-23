@@ -1,0 +1,48 @@
+#ifndef CS_NET_HTTP_STATUS_HH
+#define CS_NET_HTTP_STATUS_HH
+
+#include <stdint.h>
+
+#include <map>
+#include <sstream>
+#include <string>
+
+namespace cs::net::http {
+
+struct Status {
+  Status() {}
+  Status(uint32_t code, std::string name)
+      : code(code), name(name) {}
+
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const Status& status) {
+    return os << status.code << " " << status.name;
+  }
+
+  std::string str() const {
+    std::stringstream ss;
+    ss << *this;
+    return ss.str();
+  };
+
+  uint32_t code;
+  std::string name;
+};
+
+static const Status HTTP_200_OK(200, "OK");
+static const Status HTTP_201_CREATED(201, "CREATED");
+static const Status Http301MovedPermanently(
+    301, "MOVED PERMANENTLY");
+static const Status HTTP_302_FOUND(302, "FOUND");
+static const Status kHttp302Found(302, "FOUND");
+static const Status HTTP_400_BAD_REQUEST(400,
+                                         "BAD REQUEST");
+static const Status HTTP_403_PERMISSION_DENIED(
+    403, "PERMISSION DENIED");
+static const Status HTTP_404_NOT_FOUND(404, "NOT FOUND");
+static const Status HTTP_500_INTERNAL_SERVER_ERROR(
+    500, "INTERNAL SERVER ERROR");
+
+}  // namespace cs::net::http
+
+#endif  // CS_NET_HTTP_STATUS_HH
