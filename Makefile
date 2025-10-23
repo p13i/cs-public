@@ -322,7 +322,7 @@ pub: ## Publishes the source code, respecting acl.json files, into ../cs-public
 	[ -f .env ] && . ./.env
 	set +a
 	@${BAZEL} run //cs/devtools:publish_code -- $(shell pwd) $(shell pwd)/../cs-public
-	@cd ../cs-public && git add . && git status && git commit -m "Publish source at $${COMMIT} ($${VERSION})" && git push
+	@cd ../cs-public && git add . && git status && git commit -m "[publish] $${VERSION} ($${COMMIT})" && git push
 
 .PHONY=pull-singlefile-image
 pull-singlefile-image:
