@@ -1,0 +1,12 @@
+on:
+  schedule:
+    - cron: "59 23 * * WED,SAT"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (GitHub)
+        uses: actions/checkout@v3
+      - name: Build and run dev container task
+        uses: devcontainers/ci@v0.3

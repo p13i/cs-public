@@ -1,0 +1,68 @@
+[
+  {
+    "request": {
+      "method": "GET",
+      "url": "/db/hi"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/game/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/render/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/uuid/?format=json"
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "uuid": ""
+      }
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "url": "/user/",
+      "data": {
+        "email": "some@email.com",
+        "password": "MyVerySecurePassword20@%"
+      }
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "email": "some@email.com"
+      }
+    }
+  }
+]

@@ -1,0 +1,145 @@
+on:
+  push:
+    branches:
+      - "**"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  bazel:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ---- Caches (speed up repeated runs) ----
+      - name: Cache Bazel & Bazelisk
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/bazel
+            ~/.cache/bazelisk
+          key: bazel-${{ runner.os }}-${{ hashFiles('**/BUILD', '**/*.BUILD', '**/MODULE.bazel', '**/*.bzl') }}
+          restore-keys: |
+            bazel-${{ runner.os }}-
+
+      - name: Cache Go modules & tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/go/bin
+          key: go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            go-${{ runner.os }}-
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/npm-shrinkwrap.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements*.txt', '**/pyproject.toml', '**/poetry.lock') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      # ---- Setup once (reused by all following steps in this job) ----
+      - name: Setup
+        run: make setup
+
+      # ---- Lint & auto-fix; open PR if diffs were produced ----
+      - name: Run linters (may modify files)
+        run: make lint
+
+      - name: Assert no diffs (captures outcome)
+        id: assert
+        continue-on-error: true
+        run: |
+          make assert-no-diffs
+
+      - name: Create pull request with formatting changes
+        if: ${{ steps.assert.outcome == 'failure' }}
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: Apply lint tools to ${{ github.ref_name }}
+          title: Apply lint tools to ${{ github.ref_name }}
+          branch: bazel-${{ github.run_number }}
+          body: |
+            This pull request applies formatting changes (buildifier/clang-format/prettier/black)
+            produced by the CI run at ${{ github.sha }}.
+          labels: auto-generated
+          reviewers: ${{ github.actor }}
+
+      - name: Store pull request number
+        if: ${{ steps.assert.outcome == 'failure' && steps.cpr.outputs.pull-request-number }}
+        run: echo "PR_NUMBER=${{ steps.cpr.outputs.pull-request-number }}" >> "$GITHUB_ENV"
+
+      # ---- Only build & test if lint produced no diffs ----
+      - name: Build
+        if: ${{ steps.assert.outcome == 'success' }}
+        run: make build
+
+      - name: Test
+        if: ${{ steps.assert.outcome == 'success' }}
+        run: make test
+      
+      # ---- Conditional release & PR ----
+      - name: Compute release metadata
+        id: relmeta
+        if: ${{ success() && steps.assert.outcome == 'success' && contains(github.event.head_commit.message, 'ci:release') }}
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${GITHUB_SHA::7}"
+
+          # Derive VERSION from (in order): make print-version | VERSION file | latest tag | fallback
+          VERSION=""
+          if make -n print-version >/dev/null 2>&1; then
+            VERSION="$(make -s print-version)"
+          elif [ -f VERSION ]; then
+            VERSION="$(sed -n '1s/^[[:space:]]*//p;q' VERSION)"
+          else
+            VERSION="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          fi
+          [ -n "$VERSION" ] || VERSION="0.0.0+dev"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "branch_name=release/v${VERSION}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+      
+      - name: Release (conditional on "ci:release")
+        id: release
+        if: ${{ success() && steps.assert.outcome == 'success' && contains(github.event.head_commit.message, 'ci:release') }}
+        run: make release
+
+      - name: Create pull request for release
+        if: ${{ steps.release.outcome == 'success' }}
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "[release] v${{ steps.relmeta.outputs.version }} (${{ steps.relmeta.outputs.short_sha }})"
+          title: "[release] v${{ steps.relmeta.outputs.version }} (${{ steps.relmeta.outputs.short_sha }})"
+          branch: ${{ steps.relmeta.outputs.branch_name }}
+          body: |
+            Automated release PR from `${{ github.ref_name }}` at `${{ github.sha }}`.
+            - Version: v${{ steps.relmeta.outputs.version }}
+            - Commit: ${{ steps.relmeta.outputs.short_sha }}
+            Triggered by `ci:release` in the commit message.
+          labels: release
+          reviewers: ${{ github.actor }}
