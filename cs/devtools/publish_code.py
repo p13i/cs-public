@@ -23,6 +23,7 @@ def DLOG(*args):
     if VERBOSE:
         print(*args)
 
+
 def clean_directory_except_git(directory_path):
     """
     Removes all files and subdirectories within a given directory,
@@ -40,13 +41,14 @@ def clean_directory_except_git(directory_path):
         if item == ".git":
             print(f"Skipping .git folder: {item_path}")
             continue  # Skip the .git folder
-        
+
         if os.path.isfile(item_path):
             os.remove(item_path)
             print(f"Removed file: {item_path}")
         elif os.path.isdir(item_path):
             shutil.rmtree(item_path)
             print(f"Removed directory: {item_path}")
+
 
 def CheckACLs(
     acls: List[Dict[str, Union[List[str], bool]]],
@@ -123,9 +125,8 @@ def main(argv: List[str]) -> None:
         os.makedirs(dirname(out_path), exist_ok=True)
         with open(repo_path, mode="rb") as src, open(out_path, mode="wb") as dst:
             dst.write(src.read())
-            subprocess.check_output(
-                "git add " + resource, shell=True, cwd=OUT_DIR
-            )
+            subprocess.check_output("git add " + resource, shell=True, cwd=OUT_DIR)
+
 
 if __name__ == "__main__":
     main(sys.argv)

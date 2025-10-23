@@ -319,7 +319,7 @@ probe:  ## Run the HTTP prober utility.
 .PHONY=pub
 pub: ## Publishes the source code, respecting acl.json files, into ../cs-public
 	set -a
-	[ -f .env ] && . ./.env
+	. ./.env
 	set +a
 	@${BAZEL} run //cs/devtools:publish_code -- $(shell pwd) $(shell pwd)/../cs-public
 	@cd ../cs-public && git add . && git status && git commit -m "[publish] $${VERSION} ($${COMMIT})" && git push
@@ -334,10 +334,10 @@ r: release
 .PHONY=release
 release: update-env ## Updates the .env file with the latest COMMIT hash and commits a release.
 	set -a
-	[ -f .env ] && . ./.env
+	. ./.env
 	set +a
 	git add .env
-	git commit -m "[release] $${VERSION:-unknown} ($${COMMIT})"
+	git commit -m "[release] $${VERSION} ($${COMMIT})"
 	git push
 
 
