@@ -4,6 +4,7 @@ import json
 import glob
 import re
 import subprocess
+import shutil
 
 from typing import List, Dict, Union
 from os.path import join, exists, isfile, dirname
@@ -22,6 +23,30 @@ def DLOG(*args):
     if VERBOSE:
         print(*args)
 
+def clean_directory_except_git(directory_path):
+    """
+    Removes all files and subdirectories within a given directory,
+    except for the .git folder.
+
+    Args:
+        directory_path (str): The path to the directory to clean.
+    """
+    if not os.path.isdir(directory_path):
+        print(f"Error: '{directory_path}' is not a valid directory.")
+        return
+
+    for item in os.listdir(directory_path):
+        item_path = os.path.join(directory_path, item)
+        if item == ".git":
+            print(f"Skipping .git folder: {item_path}")
+            continue  # Skip the .git folder
+        
+        if os.path.isfile(item_path):
+            os.remove(item_path)
+            print(f"Removed file: {item_path}")
+        elif os.path.isdir(item_path):
+            shutil.rmtree(item_path)
+            print(f"Removed directory: {item_path}")
 
 def CheckACLs(
     acls: List[Dict[str, Union[List[str], bool]]],
@@ -76,6 +101,8 @@ def main(argv: List[str]) -> None:
     REPO_DIR = argv[1]
     global OUT_DIR
     OUT_DIR = argv[2]
+
+    clean_directory_except_git(OUT_DIR)
 
     principal = ANY
     resource = ANY
