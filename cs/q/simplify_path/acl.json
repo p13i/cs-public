@@ -1,0 +1,9 @@
+{
+  "policies": [
+    {
+      "principals": ["*"],
+      "resources": ["*"],
+      "allow": true
+    }
+  ]
+}
