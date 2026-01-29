@@ -1,3 +1,4 @@
+// cs/fs/fs.cc
 #include "fs.hh"
 
 #include <string.h>
@@ -37,7 +38,7 @@ ResultOr<std::string> cs::fs::read(std::string path) {
   std::ostringstream buffer;
   buffer << file.rdbuf();
   if (file.fail()) {
-    return TRACE(
+    return TRACE(  // LCOV_EXCL_LINE
         Error("Failed to read file. path=" + path +
               ", strerror(errno)=" + strerror(errno)));
   }
@@ -56,7 +57,7 @@ Result cs::fs::write(std::string path,
 
   file << contents;
   if (file.fail()) {
-    return TRACE(
+    return TRACE(  // LCOV_EXCL_LINE
         Error("Failed to write to file. path=" + path +
               ", strerror(errno)=" + strerror(errno)));
   }
@@ -87,7 +88,34 @@ Result cs::fs::mkdir(std::string path) {
     return TRACE(Error(e.what()));
   }
 }
+
+Result cs::fs::Delete(std::string path) {
+  try {
+    if (!std::filesystem::remove(path)) {
+      return TRACE(Error("Failed to delete path: " + path));
+    }
+    return Ok();
+    // LCOV_EXCL_START
+  } catch (const std::filesystem::filesystem_error& e) {
+    return TRACE(Error(e.what()));
+  }
+  // LCOV_EXCL_STOP
+}
+
 bool cs::fs::dir_exists(std::string path) {
   return std::filesystem::is_directory(path) &&
+         std::filesystem::exists(path);
+}
+
+bool cs::fs::IsDir(std::string path) {
+  return std::filesystem::is_directory(path) &&
+         std::filesystem::exists(path);
+}
+
+bool cs::fs::IsFile(std::string path) {
+  return (std::filesystem::is_regular_file(path) ||
+          std::filesystem::is_block_file(path) ||
+          std::filesystem::is_character_file(path)) &&
+         !std::filesystem::is_directory(path) &&
          std::filesystem::exists(path);
 }

@@ -1,3 +1,4 @@
+# cs/net/http/BUILD
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
@@ -7,6 +8,8 @@ cc_binary(
     ],
     deps = [
         "//cs:result",
+        "//cs/apps/trycopilot.ai:scene1",
+        "//cs/apps/trycopilot.ai:scene_animator",
         "//cs/net/http:request",
         "//cs/net/http:response",
         "//cs/net/http:web_app",
@@ -16,8 +19,6 @@ cc_binary(
         "//cs/renderer:film",
         "//cs/renderer:pixel",
         "//cs/util:timeit",
-        "//cs/www/app:scene1",
-        "//cs/www/app:scene_animator",
     ],
 )
 
@@ -52,6 +53,7 @@ cc_library(
     deps = [
         "//cs:result",
         "//cs/net/http:parsers",
+        "//cs/util:string",
     ],
 )
 
@@ -83,7 +85,7 @@ cc_library(
         ":server",
         "//cs:log",
         "//cs:result",
-        "//cs/www/app/api:logs",
+        "//cs/apps/trycopilot.ai/api:logs",
     ],
 )
 
@@ -91,4 +93,16 @@ cc_library(
     name = "favicon",
     srcs = ["favicon.cc"],
     hdrs = ["favicon.hh"],
+)
+
+cc_library(
+    name = "client",
+    srcs = ["client.cc"],
+    hdrs = ["client.hh"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//cs:result",
+        "//cs/net/http:response",
+        "@curl",
+    ],
 )

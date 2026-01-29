@@ -1,3 +1,4 @@
+# cs/net/proto/BUILD
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -22,8 +23,7 @@ cc_library(
 
 cc_library(
     name = "validators",
-    srcs = ["validators.cc"],
-    hdrs = ["validators.hh"],
+    hdrs = ["validators.gpt.hh"],
     deps = [
         "//cs:log",
         "//cs:result",

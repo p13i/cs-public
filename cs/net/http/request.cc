@@ -1,3 +1,4 @@
+// cs/net/http/request.cc
 #include "cs/net/http/request.hh"
 
 #include <stdint.h>
@@ -9,11 +10,13 @@
 
 #include "cs/net/http/parsers.hh"
 #include "cs/result.hh"
+#include "cs/util/string.hh"
 
 namespace cs::net::http {
 
 namespace {
 using ::cs::Error;
+using ::cs::NotFoundError;
 using ::cs::Ok;
 using ::cs::Result;
 using ::cs::net::http::parsers::AtEndOfLine;
@@ -21,6 +24,7 @@ using ::cs::net::http::parsers::IncrementCursor;
 using ::cs::net::http::parsers::ParsePath;
 using ::cs::net::http::parsers::ReadThroughNewline;
 using ::cs::net::http::parsers::ReadWord;
+using ::cs::util::string::ToLowercase;
 }  // namespace
 
 Result Request::Parse(std::string str) {
@@ -100,6 +104,20 @@ Request::ParseFormUrlEncoded(const std::string& body) {
     }
   }
   return formData;
+}
+
+cs::ResultOr<std::string> Request::NormalizedHost() const {
+  for (const auto& [name, value] : _headers) {
+    if (ToLowercase(name) == "host") {
+      std::string host = ToLowercase(value);
+      std::string::size_type colon = host.find(':');
+      if (colon != std::string::npos) {
+        host = host.substr(0, colon);
+      }
+      return host;
+    }
+  }
+  return TRACE(NotFoundError("Host header missing."));
 }
 
 }  // namespace cs::net::http

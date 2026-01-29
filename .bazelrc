@@ -6,6 +6,16 @@ build:release --strip=always
 build:debug -c dbg
 build:debug --features=oso_prefix_is_pwd
 build --incompatible_enable_cc_toolchain_resolution
+build --java_runtime_version=remotejdk_21
+build --tool_java_runtime_version=remotejdk_21
+build --copt=-Wno-comment
+build --copt=-Wno-attributes
+build --copt=-Wno-unknown-attributes
 build --action_env=BAZEL_CXXOPTS="-std=c++17"
 common --enable_bzlmod
 test --test_output=all
+
+# Config for WSL2 / environments where Linux toolchains must be forced
+# to avoid Mac ARM64 toolchain selection (e.g. emscripten).
+build:wsl2 --host_platform=//cs/apps/platforms:linux_x86_64
+build:wsl2 --platforms=//cs/apps/platforms:linux_x86_64

@@ -1,10 +1,14 @@
+// cs/renderer/geo/vector3_test.cc
 #include "cs/renderer/geo/vector3.h"
+
+#include <sstream>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 using p3 = ::cs::renderer::geo::Point3;
 using v3 = ::cs::renderer::geo::Vector3;
+using ::testing::HasSubstr;
 
 TEST(Vector3, OneArgConstructor) {
   EXPECT_EQ(v3(p3(1, 1, 1)), v3(1, 1, 1));
@@ -36,4 +40,10 @@ TEST(Vector3, Unit) {
             v3(p3(0.57735026918962576450914878050196,
                   0.57735026918962576450914878050196,
                   0.57735026918962576450914878050196)));
+}
+
+TEST(Vector3, StreamOutput) {
+  std::ostringstream os;
+  os << v3(1.0f, 2.0f, 3.0f);
+  EXPECT_THAT(os.str(), HasSubstr("Vector3("));
 }

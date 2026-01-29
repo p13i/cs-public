@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-#include "priority_queue.h"
+#include "cs/q/priority_queue/priority_queue.h"
 
 int KthLargestValue(int k, int length, int* values) {
   printf("I'm here 3!\n");

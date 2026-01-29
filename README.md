@@ -1,88 +1,40 @@
 # `cs`
 
-An ever-growing index of all things computer science.
+An ever-growing index of computer-science experiments. Built
+with Bazel, C++, and WebAssembly; the ray tracer follows
+Pharr et al.'s [_PBRT_](https://pbr-book.org/).
 
 ---
 
 [![.github/workflows/bazel.yml](https://github.com/p13i/cs/actions/workflows/bazel.yml/badge.svg)](https://github.com/p13i/cs/actions/workflows/bazel.yml)
 &nbsp;
-[![.github/workflows/deploy.yml](https://github.com/p13i/cs/actions/workflows/docker.yml/badge.svg)](https://github.com/p13i/cs/actions/workflows/docker.yml)
+[![.github/workflows/docker.yml](https://github.com/p13i/cs/actions/workflows/docker.yml/badge.svg)](https://github.com/p13i/cs/actions/workflows/docker.yml)
 &nbsp;
-[![.github/workflows/deploy.yml](https://github.com/p13i/cs/actions/workflows/docker.yml/badge.svg)](https://github.com/p13i/cs/actions/workflows/devcontainer.yml)
+[![.github/workflows/devcontainer.yml](https://github.com/p13i/cs/actions/workflows/devcontainer.yml/badge.svg)](https://github.com/p13i/cs/actions/workflows/devcontainer.yml)
+&nbsp;
+[![codecov](https://codecov.io/gh/p13i/cs/graph/badge.svg?token=MPJ4FDCSGA)](https://codecov.io/gh/p13i/cs)
 
 ---
+
+## Quick start
+
+- GitHub Codespaces: click the green **Code** button →
+  **Create codespace**. Once the environment is ready, run
+  `make` and open forwarded port 8000 to view the graphics
+  simulator (see screenshot below).
+- Local: with Bazel installed, run `make` from the repo
+  root, then open port 8000 to the same simulator.
+
+## Snapshots
 
 <img width="1072" height="697" alt="image" src="https://github.com/user-attachments/assets/7afabac1-1d10-46c7-8d57-bc632291a6f9" />
 
----
-
 <img width="1028" height="653" alt="image" src="https://github.com/user-attachments/assets/95b165fb-0fe6-4a62-9e56-4a26e7780194" />
 
----
+## Future projects
 
-Open a Github Codespace (via the green "Code" button on the
-homepage of this repo). Your dev environment will
-automatically be ready-to-go. Run `make` from the terminal
-and open port 8000 to view the main graphics simulator:
-
-<img width="1844" alt="image" src="https://github.com/p13i/cs/assets/13140065/58a0fe4b-98aa-4dda-af8b-9375f6d3eac1">
-
-This project uses the Bazel build system from Google. Other
-technologies used include C++ and WebAssembly.
-
-The raytracer implementation is based on Pharr et al.'s
-[_PBRT_](pbr-book.org).
-
----
-
-# Future projects:
-
-ai:
-
-- csp
-- gpt
-- stats
-- nnet
-- minimax
-
-optimization:
-
-- gradient descent
-- dual primal solver
-
-games
-
-- uno
-- chess
-
-net:
-
-- p2p
-- tcp
-
-ai:
-
-- csp
-- gpt
-- stats
-- nnet
-- minimax
-
-optimization:
-
-- gradient descent
-- dual primal solver
-
-games
-
-- uno
-- chess
-
-controls:
-
-- pid
-
-net:
-
-- p2p
-- tcp
+- AI: csp, gpt, stats, nnet, minimax
+- Optimization: gradient descent, dual primal solver
+- Games: uno, chess
+- Controls: pid
+- Networking: p2p, tcp

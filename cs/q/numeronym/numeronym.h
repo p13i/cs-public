@@ -1,3 +1,4 @@
+// cs/q/numeronym/numeronym.h
 #ifndef CS_Q_NUMERONYM_NUMERONYM_H
 #define CS_Q_NUMERONYM_NUMERONYM_H
 

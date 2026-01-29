@@ -1,0 +1,196 @@
+# Infrastructure as Code Specification
+# This is the SOURCE OF TRUTH for all docker configs
+#
+# To apply changes:
+#   1. Edit this file (system.gpt.yml)
+#   2. Run: make expand
+#   3. Commit both this file and the generated docker files
+#
+# Generated files (do not edit manually):
+#   - Dockerfile
+#   - docker-compose.yml
+#   - docker-compose.dev.yml
+#
+# Intelligent caching:
+# Images are tagged with content hashes (e.g., cs-app:www-trycopilot-ai-abc123)
+# computed from source files. Docker only rebuilds when source changes.
+# Use 'make expand-check' to see which services need rebuilding.
+
+storage:
+  database-volume: {}
+
+services:
+  www-trycopilot-ai:
+    type: web-application
+    source: cs/apps/trycopilot.ai
+
+    network:
+      interface: private
+
+    replicas:
+      prod: 5
+      dev: 3
+
+    storage:
+      - mount: database-volume
+        access: read-write
+
+    security:
+      isolation: unprivileged
+
+    config:
+      - VERSION
+      - COMMIT
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --port=8080
+      - --version=${VERSION}
+      - --commit=${COMMIT}
+
+  www-cite-pub:
+    type: web-application
+    source: cs/apps/cite.pub
+
+    network:
+      interface: public
+      port: 8080
+
+    replicas: 1
+
+    security:
+      isolation: user-namespaced
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --port=8080
+
+  code-viewer:
+    type: web-application
+    source: cs/apps/code-viewer
+
+    network:
+      interface: private
+
+    replicas: 3
+
+    security:
+      isolation: unprivileged
+
+    config:
+      - VERSION
+      - COMMIT
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --port=8080
+      - --version=${VERSION}
+      - --commit=${COMMIT}
+
+  database-service:
+    type: data-store
+    source: cs/apps/database-service
+
+    network:
+      interface: private
+
+    replicas: 5
+
+    storage:
+      - mount: database-volume
+        access: read-write
+
+    security:
+      isolation: privileged
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --data_dir=/data
+      - --port=8080
+
+  load-balancer:
+    type: reverse-proxy
+    source: cs/apps/load-balancer
+
+    network:
+      interface:
+        prod: private
+        dev: public
+      port: 8080
+
+    replicas: 1
+
+    storage:
+      - mount: database-volume
+        access: read-write
+
+    dependencies:
+      - service: www-trycopilot-ai
+        requirement: available
+      - service: www-cite-pub
+        requirement: available
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --port=8080
+
+  service-registry:
+    type: orchestration
+    source: cs/apps/service-registry
+
+    network:
+      interface: private
+
+    replicas: 1
+
+    storage:
+      - mount: database-volume
+        access: read-write
+
+    security:
+      isolation: privileged
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --port=8080
+
+  ngrok:
+    type: tunnel
+
+    network:
+      management_port: 4040
+
+    replicas: 1
+    restart_policy: manual
+
+    # Domain mappings: which domains route to which services
+    # The system automatically determines service ports from their network config
+    # and generates the full ngrok YAML configuration
+    expose:
+      load-balancer:
+        # domain2service
+        mapping:
+          www.trycopilot.ai: www-trycopilot-ai
+          code.trycopilot.ai: code-viewer
+          www.cite.pub: www-cite-pub
+        prod:
+          [
+            www.trycopilot.ai,
+            code.trycopilot.ai,
+            www.cite.pub
+          ]
+        dev:
+          [
+            dev.www.trycopilot.ai,
+            dev.code.trycopilot.ai,
+            dev.www.cite.pub
+          ]
+
+    dependencies:
+      - service: load-balancer

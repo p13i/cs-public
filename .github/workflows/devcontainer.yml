@@ -1,6 +1,11 @@
 on:
   schedule:
     - cron: "59 23 * * WED,SAT"
+  pull_request:
+    paths:
+      - ".github/workflows/devcontainer.yml"
+      - ".devcontainer/devcontainer.json"
+      - "Dockerfile"
 
 jobs:
   build:

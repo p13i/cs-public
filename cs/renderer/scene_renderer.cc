@@ -1,3 +1,4 @@
+// cs/renderer/scene_renderer.cc
 #include "cs/renderer/scene_renderer.hh"
 
 #include <cstdint>

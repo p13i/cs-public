@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+# cs/devtools/lint_makefile.py
 """
 makefile_lint.py — Reorganize a Makefile with custom rules:
   - Hoist ALL-CAPS variable assignments to a single, ordering-preserved block near the top
     (while preserving any leading guarded blocks like ifeq/ifdef ... endif).
   - Sort all build rules alphabetically.
   - Ensure every rule header has a "## ..." help comment; if missing, add one.
-  - Insert a `.PHONY=thisrule` line immediately before each rule header.
+  - Insert a `.PHONY: thisrule` line immediately before each rule header.
   - Optional safe line-wrapping for comments and simple var assignments.
 
 USAGE:
@@ -19,7 +20,7 @@ Caveats:
   - Designed to be conservative with Make semantics.
   - Guarded blocks (ifeq/ifneq/ifdef/ifndef ... endif) are preserved in place.
   - Only *top-level* ALL-CAPS var assignments are hoisted.
-  - `.PHONY=thisrule` lines are added literally (per the requirement), not `.PHONY:`.
+  - `.PHONY: thisrule` lines use standard GNU Make syntax (colon separator).
 """
 
 from __future__ import annotations
@@ -178,6 +179,12 @@ def parse_blocks(lines: List[str]) -> List[Block]:
             i += 1
             continue
 
+        # .PHONY lines should be treated as misc, not rules
+        if RE_PHONY_LINE.match(line):
+            blocks.append(Block("misc", [line]))
+            i += 1
+            continue
+
         # Dot directives that aren't rules (e.g., .DEFAULT_GOAL, .PHONY: x)
         if RE_DOT_DIRECTIVE.match(line) and not RE_RULE_HEADER.match(line):
             blocks.append(Block("misc", [line]))
@@ -274,14 +281,19 @@ def ensure_rule_has_comment(line: str, target: str) -> str:
 
 
 def insert_phony_equals(rule_block: Block) -> Block:
-    """Ensure a .PHONY line is immediately before the rule header; add only if missing."""
-    # If first line is already a .PHONY directive, keep as-is.
+    """Ensure a .PHONY line is immediately before the rule header; normalize to standard format."""
+    # If first line is already a .PHONY directive, normalize it to standard format.
     if rule_block.lines and RE_PHONY_LINE.match(rule_block.lines[0]):
-        return rule_block
+        header = rule_block.lines[0]
+        nl = "\n" if header.endswith("\n") else ""
+        target = rule_block.key or ""
+        phony = f".PHONY: {target}{nl}"
+        new_lines = [phony] + rule_block.lines[1:]
+        return Block("rule", new_lines, key=rule_block.key)
     header = rule_block.lines[0]
     nl = "\n" if header.endswith("\n") else ""
     target = rule_block.key or ""
-    phony = f".PHONY={target}{nl}"
+    phony = f".PHONY: {target}{nl}"
     new_lines = [phony] + rule_block.lines
     return Block("rule", new_lines, key=rule_block.key)
 

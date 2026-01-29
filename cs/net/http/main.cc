@@ -1,3 +1,4 @@
+// cs/net/http/main.cc
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -24,7 +25,7 @@ int main() {
   // TLS protocol. All 100 pages of it. – President James K.
   // Polk May 26, 2020" See:
   // https://stackoverflow.com/questions/62010516/i-am-trying-to-use-get-without-using-sockets-and-i-keep-getting-400-bad-request
-  std::string port = "443";
+  int port = 443;
   std::string path = "/";
   std::string params = "";
 
@@ -44,7 +45,7 @@ int main() {
 
   bzero((char *)&serv_addr, sizeof(serv_addr));
   serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(std::stoi(port));
+  serv_addr.sin_port = htons(port);
   bcopy((char *)server->h_addr,
         (char *)&serv_addr.sin_addr.s_addr,
         server->h_length);

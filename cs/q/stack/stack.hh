@@ -1,3 +1,4 @@
+// cs/q/stack/stack.hh
 #ifndef CS_Q_STACK_STACK_HH
 #define CS_Q_STACK_STACK_HH
 

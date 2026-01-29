@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# cs/devtools/newfile.py
 """
 Created by ChatGPT:
 https://chatgpt.com/share/67dde23d-99d0-800e-8eb9-26de6a62c124
@@ -25,7 +27,7 @@ def create_header_file(repo_dir: str, file_path: str):
     guard = generate_header_guard(file_path)
     namespace = generate_namespace(file_path)
 
-    content = f"""
+    content = f"""// {file_path}
 {guard}
 {namespace} {{
 
@@ -42,7 +44,7 @@ def create_header_file(repo_dir: str, file_path: str):
 def create_source_file(repo_dir: str, file_path: str, header_path: str):
     """Create a C++ source file that includes the corresponding header and defines a namespace."""
     namespace = generate_namespace(file_path)
-    include_guard = f'#include "{header_path}"'
+    include_guard = f'// {file_path}\n#include "{header_path}"'
 
     content = f"""
 {include_guard}
@@ -57,7 +59,7 @@ def create_source_file(repo_dir: str, file_path: str, header_path: str):
 
 
 def create_test_file(repo_dir: str, file_path: str, header_path: str):
-    content = f"""
+    content = f"""// {file_path}
 #include "{header_path}"
 
 #include <stdio.h>

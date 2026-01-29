@@ -1,3 +1,4 @@
+// cs/net/rpc/rpc.hh
 #ifndef CS_NET_RPC_RPC_HH
 #define CS_NET_RPC_RPC_HH
 
@@ -74,6 +75,9 @@ template <typename Implementation, typename RequestProto,
           typename ResponseProto>
 class RPC {
  public:
+  using RequestType = RequestProto;
+  using ResponseType = ResponseProto;
+
   static cs::net::http::Response HttpHandler(
       cs::net::http::Request request) {
     RequestProto request_proto;

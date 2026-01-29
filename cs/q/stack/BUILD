@@ -1,3 +1,4 @@
+# cs/q/stack/BUILD
 package(default_visibility = ["//visibility:public"])
 
 cc_test(

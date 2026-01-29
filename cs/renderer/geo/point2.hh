@@ -1,3 +1,4 @@
+// cs/renderer/geo/point2.hh
 #ifndef CS_RENDERER_GEO_POINT2_HH
 #define CS_RENDERER_GEO_POINT2_HH
 

@@ -1,3 +1,4 @@
+// cs/renderer/shapes/plane.cc
 #include "cs/renderer/shapes/plane.hh"
 
 #include "cs/renderer/geo/dot.hh"

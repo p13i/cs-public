@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# cs/net/proto/codegen/generators.py
 from typing import Union
 from cs.net.proto.codegen.codegen_types import Proto, Types, ProtoDB, Field
 from cs.net.proto.codegen.constants import NEWLINE
@@ -14,6 +16,7 @@ from cs.net.proto.codegen.helpers import (
 from cs.net.proto.codegen.testing import (
     ValidJsonValue,
     VectorMatcher,
+    MapMatcher,
     TestMatcher,
     Asserts,
 )
@@ -50,6 +53,39 @@ class {proto.name}Impl : public {proto.namespace}::{proto.name} {{
     std::string Serialize(unsigned int indent = 0) const;
     cs::ResultOr<{proto.name}> Parse(std::string s);
 }};
+"""
+
+
+def GenerateMetaImplementation(proto: Proto, PROTOS: ProtoDB):
+    proto_fqn = f"{proto.namespace}::{proto.name}"
+    meta_ns = "cs::net::proto::protos"
+    meta_gen_ns = f"{meta_ns}::gencode::meta"
+
+    # Build field metas - create vector and push_back each field
+    if proto.fields:
+        field_builds = []
+        for field in proto.fields:
+            # Escape quotes and backslashes in original_type for string literals
+            type_str = field.original_type.replace("\\", "\\\\").replace('"', '\\"')
+            field_build = f"""fields.push_back(::{meta_gen_ns}::ProtoFieldMetaBuilderImpl{{}}
+        .set_name("{field.name}")
+        .set_type("{type_str}")
+        .Build());"""
+            field_builds.append(field_build)
+        fields_code = "\n    ".join(field_builds)
+        fields_setup = f"""std::vector<{meta_ns}::ProtoFieldMeta> fields;
+    {fields_code}"""
+    else:
+        fields_setup = f"std::vector<{meta_ns}::ProtoFieldMeta> fields;"
+
+    return f"""template<>
+{meta_ns}::ProtoMeta cs::net::proto::Proto<{proto_fqn}>::Meta() const {{
+    {fields_setup}
+    return ::{meta_gen_ns}::ProtoMetaBuilderImpl{{}}
+        .set_name("{proto_fqn}")
+        .set_fields(fields)
+        .Build();
+}}
 """
 
 
@@ -161,10 +197,10 @@ def GenerateToObjectDefinition(T: Union[Types, str], PROTOS: ProtoDB):
 }};
 
 cs::ResultOr<{proto.namespace}::{proto.name}> {proto.name}FromObject(cs::net::json::Object obj) {{
-    if (!obj.is_map()) {{
+    if (!obj.is(std::map<std::string, cs::net::json::Object>())) {{
         return TRACE(InvalidArgument("Object for {proto.name} is not a map."));
     }}
-    {proto.namespace}::{proto.name} res;
+    {proto.namespace}::{proto.name} res{{}};  // Value-initialize all fields (bool=false, int=0, string="")
     {NEWLINE.join([ParseFromObject(field, "obj", "res", PROTOS) for field in proto.fields])}
     return res;
 }};
@@ -179,13 +215,36 @@ cs::ResultOr<{proto.namespace}::{proto.name}> {proto.name}FromObject(cs::net::js
 }};
 
 {GenerateFromObjectDeclaration(T, PROTOS, semicolon=False)} {{
-    if (!obj.is_array()) {{
+    if (!obj.is(std::vector<cs::net::json::Object>())) {{
         return TRACE(InvalidArgument("Object for {T} is not an array."));
     }}
     {T} results;
-    for (const auto& item : obj.as_array()) {{
+    results.reserve(obj.as(std::vector<cs::net::json::Object>()).size());
+    for (const auto& item : obj.as(std::vector<cs::net::json::Object>())) {{
         SET_OR_RET(auto item_as_obj, {RecursiveDescribeT(extract_T(T, PROTOS), PROTOS)}FromObject(item));
-        results.emplace_back(item_as_obj);
+        results.push_back(item_as_obj);
+    }}
+    return results;
+}};
+"""
+    elif T.startswith(Types.MAP) and T.endswith(">"):
+        V = extract_T(T, PROTOS)
+        return f"""{GenerateToObjectDeclaration(T, PROTOS, semicolon=False)} {{
+    cs::net::json::Object::KVMap map_obj;
+    for (const auto& [key, val] : value) {{
+        map_obj[key] = {RecursiveDescribeT(V, PROTOS)}ToObject(val);
+    }}
+    return cs::net::json::Object(map_obj);
+}};
+
+{GenerateFromObjectDeclaration(T, PROTOS, semicolon=False)} {{
+    if (!obj.is(std::map<std::string, cs::net::json::Object>())) {{
+        return TRACE(InvalidArgument("Object for {T} is not a map."));
+    }}
+    {T} results;
+    for (const auto& [key, val] : obj.as(std::map<std::string, cs::net::json::Object>())) {{
+        SET_OR_RET(auto val_as_obj, {RecursiveDescribeT(V, PROTOS)}FromObject(val));
+        results[key] = val_as_obj;
     }}
     return results;
 }};
@@ -204,6 +263,85 @@ cs::ResultOr<{proto.namespace}::{proto.name}> {proto.name}FromObject(cs::net::js
 """
     else:
         raise ValueError(f"Unsupported type {T} for ToObject definition.")
+
+
+def GenerateGetFieldPathSpecialization(proto: Proto, PROTOS: ProtoDB) -> str:
+    """Generate GetFieldPath template specialization for a proto type."""
+    proto_fqn = f"{proto.namespace}::{proto.name}"
+
+    # Generate field path constants
+    constants = []
+    for field in proto.fields:
+        const_name = f"k{proto.name}_{field.name}_path"
+        constants.append(f'  inline const std::string {const_name} = "{field.name}";')
+
+    constants_code = "\n".join(constants) if constants else ""
+
+    # Generate template specialization
+    cases = []
+    for field in proto.fields:
+        const_name = (
+            f"cs::net::proto::db::codegen_helpers::k{proto.name}_{field.name}_path"
+        )
+        cases.append(
+            f"      if (member_ptr == &{proto_fqn}::{field.name}) return {const_name};"
+        )
+
+    cases_code = "\n".join(cases) if cases else '      return "";'
+
+    if not constants_code:
+        return ""
+
+    return f"""
+#include "cs/net/proto/db/field_path_builder.gpt.hh"
+
+namespace cs::net::proto::db::codegen_helpers {{
+{constants_code}
+}}
+
+namespace cs::net::proto::db {{
+  template<typename FieldType>
+  std::string GetFieldPath(FieldType {proto_fqn}::*member_ptr) {{
+{cases_code}
+    return "";
+  }}
+}}
+"""
+
+
+def GenerateFieldPathBuilderSupport(proto: Proto, PROTOS: ProtoDB) -> str:
+    """Generate field path builder support for log >> request >> path syntax."""
+    proto_fqn = f"{proto.namespace}::{proto.name}"
+
+    # Generate field path builder instance and field constants
+    builder_name = (
+        proto.name[0].lower() + proto.name[1:] if proto.name else proto.name.lower()
+    )
+
+    field_constants = []
+    for field in proto.fields:
+        # Use prefixed names to avoid conflicts across protos
+        field_constants.append(
+            f"  inline constexpr auto {proto.name.lower()}_{field.name} = &{proto.name}::{field.name};"
+        )
+
+    if not field_constants:
+        return ""
+
+    constants_code = "\n".join(field_constants)
+
+    # FieldPathBuilder contains std::string so cannot be constexpr
+    # Generate an inline function instead
+    return f"""
+#include "cs/net/proto/db/field_path_builder.gpt.hh"
+
+namespace {proto.namespace} {{
+  inline cs::net::proto::db::FieldPathBuilder<{proto.name}> {builder_name}() {{
+    return cs::net::proto::db::FieldPathBuilder<{proto.name}>{{}};
+  }}
+{constants_code}
+}}  // namespace {proto.namespace}
+"""
 
 
 def GenerateJsonProtoDefinitions(proto: Proto):
@@ -226,12 +364,24 @@ def GenerateMatchersAndProtoTests(
         )
         - PREVIOUS_DEFINITIONS
     )
+    map_matchers: set[str] = (
+        set(
+            [
+                MapMatcher(field, proto, PROTOS)
+                for field in proto.fields
+                if field.type.startswith(Types.MAP)
+            ]
+        )
+        - PREVIOUS_DEFINITIONS
+    )
 
     PREVIOUS_DEFINITIONS.update(vector_matchers)
+    PREVIOUS_DEFINITIONS.update(map_matchers)
 
     return f"""
 
 {NEWLINE.join(vector_matchers)}
+{NEWLINE.join(map_matchers)}
 
 auto {proto.name}Eq(const {proto.namespace + '::' + proto.name}& expected) {{
    return ::testing::AllOf(

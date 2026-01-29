@@ -1,5 +1,7 @@
-from dataclasses import dataclass
-from typing import List, Dict
+#!/usr/bin/env python3
+# cs/net/proto/codegen/codegen_types.py
+from dataclasses import dataclass, field
+from typing import List, Dict, Union
 
 
 class Types:
@@ -15,6 +17,14 @@ class Types:
 class Field:
     name: str
     type: str
+    original_type: str
+    validations: List["ValidationAttr"] = field(default_factory=list)
+
+
+@dataclass
+class ValidationAttr:
+    name: str
+    args: List[Union[str, "ValidationAttr"]]
 
 
 @dataclass

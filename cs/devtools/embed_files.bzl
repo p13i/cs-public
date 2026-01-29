@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
 def _collect_files_from_labels(labels):
     files = []
     for l in labels:
@@ -10,6 +12,15 @@ def _collect_files_from_labels(labels):
         seen[f.path] = f
     return [seen[k] for k in sorted(seen.keys())]
 
+def _derive_symbol_suffix(label_name):
+    """Strip _gen then _embedded from label name (e.g. index_embedded_gen -> index)."""
+    s = label_name
+    if s.endswith("_gen"):
+        s = s[:-4]
+    if s.endswith("_embedded"):
+        s = s[:-9]
+    return s
+
 def _embed_files_gen_impl(ctx):
     files = _collect_files_from_labels(ctx.attr.srcs)
     if not files:
@@ -18,9 +29,13 @@ def _embed_files_gen_impl(ctx):
     out_cc = ctx.actions.declare_file(ctx.label.name + "_embed.cc")
     out_h = ctx.actions.declare_file(ctx.label.name + "_embed.h")
 
+    suffix = ctx.attr.symbol_suffix or _derive_symbol_suffix(ctx.label.name)
+
     args = [
         "--prefix",
         ctx.attr.prefix,
+        "--symbol-suffix",
+        suffix,
         "--out_cc",
         out_cc.path,
         "--out_h",
@@ -49,6 +64,7 @@ embed_files_gen = rule(
     attrs = {
         "srcs": attr.label_list(allow_files = True),
         "prefix": attr.string(default = "embedded"),
+        "symbol_suffix": attr.string(default = ""),
         "_tool": attr.label(
             default = Label("//cs/devtools:embed_files"),
             executable = True,
@@ -61,7 +77,7 @@ embed_files_gen = rule(
     },
 )
 
-def embed_files_cc(name, srcs, prefix = "embedded", visibility = None):
+def embed_files_cc(name, srcs, prefix = "embedded", symbol_suffix = None, visibility = None):
     """Macro: generates cc_library exposing embedded files.
 
     Produces:
@@ -69,13 +85,18 @@ def embed_files_cc(name, srcs, prefix = "embedded", visibility = None):
       - <name>:     cc_library with those sources
     """
     gen_name = name + "_gen"
+    suffix = symbol_suffix
+    if suffix == None:
+        base = name[:-9] if name.endswith("_embedded") else name
+        suffix = base
     embed_files_gen(
         name = gen_name,
         srcs = srcs,
         prefix = prefix,
+        symbol_suffix = suffix,
     )
 
-    native.cc_library(
+    cc_library(
         name = name,
         srcs = [":{}_embed.cc".format(gen_name)],
         hdrs = [":{}_embed.h".format(gen_name)],

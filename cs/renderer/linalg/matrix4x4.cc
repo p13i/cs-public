@@ -1,3 +1,4 @@
+// cs/renderer/linalg/matrix4x4.cc
 #include "cs/renderer/linalg/matrix4x4.hh"
 
 #include "cs/renderer/numbers/in_range.hh"
@@ -65,7 +66,7 @@ cs::renderer::linalg::Matrix4x4::inverse() const {
               icol = k;
             }
           } else if (ipiv[k] > 1) {
-            return TRACE(
+            return TRACE(  // LCOV_EXCL_LINE
                 Error("Singular matrix in MatrixInvert"));
           }
         }
@@ -80,7 +81,7 @@ cs::renderer::linalg::Matrix4x4::inverse() const {
     indxr[i] = irow;
     indxc[i] = icol;
     if (minv[icol][icol] == 0.f) {
-      return TRACE(
+      return TRACE(  // LCOV_EXCL_LINE
           Error("Singular matrix in MatrixInvert"));
     }
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# cs/devtools/add_acls.py
 """
 Create an `acl.json` file in every directory under a root path where one
 doesn't already exist.

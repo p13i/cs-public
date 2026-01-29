@@ -1,3 +1,4 @@
+// cs/renderer/geo/dist.cc
 #include "cs/renderer/geo/point3.h"
 #include "cs/renderer/geo/vector3.h"
 

@@ -1,3 +1,4 @@
+// cs/net/http/web_app.hh
 #ifndef CS_NET_HTTP_WEB_APP_HH
 #define CS_NET_HTTP_WEB_APP_HH
 
@@ -5,16 +6,20 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 
+#include "cs/apps/trycopilot.ai/api/logs.hh"
+#include "cs/apps/trycopilot.ai/protos/gencode/log.proto.hh"
 #include "cs/log.hh"
 #include "cs/net/http/request.hh"
 #include "cs/net/http/response.hh"
 #include "cs/net/http/server.hh"
 #include "cs/result.hh"
-#include "cs/www/app/api/logs.hh"
-#include "cs/www/app/protos/gencode/log.proto.hh"
 
 namespace cs::net::http {
+
+#define ADD_ROUTE(_app, _method, _path, _function) \
+  OK_OR_RET(_app.Register(_method, _path, _function))
 
 class WebApp {
  public:
@@ -28,9 +33,10 @@ class WebApp {
   }
 
   Result RunServer(std::string ip_address, int port) {
-    auto server = cs::net::http::Server(ip_address, port);
-    OK_OR_RET(server.Bind());
-    OK_OR_RET(server.StartListening(
+    server_ = std::make_unique<cs::net::http::Server>(
+        ip_address, port);
+    OK_OR_RET(server_->Bind());
+    OK_OR_RET(server_->StartListening(
         std::bind(&WebApp::main_handler, this,
                   std::placeholders::_1)));
     return Ok();
@@ -46,6 +52,12 @@ class WebApp {
       routes.push_back(std::make_tuple(method, pattern));
     }
     return routes;
+  }
+
+  // Get current thread pool load as ratio of active threads
+  // to total threads
+  float GetThreadLoad() const {
+    return server_ ? server_->GetThreadLoad() : 0.0f;
   }
 
  private:
@@ -67,6 +79,12 @@ class WebApp {
 
   cs::net::http::Response main_handler(
       cs::net::http::Request request) {
+    // Attach this WebApp instance to the request using
+    // shared_ptr with no-op deleter (WebApp outlives the
+    // request, so we don't need to manage lifetime)
+    request.set_app(
+        std::shared_ptr<WebApp>(this, [](WebApp*) {}));
+
     cs::net::http::Response response(HTTP_404_NOT_FOUND);
     for (auto path_info : handlers_) {
       const auto [method, pattern, handler] = path_info;
@@ -79,20 +97,30 @@ class WebApp {
       response = handler(request);
       break;
     }
+
+#if 0
     // Log http request and response.
-    LOG(DEBUG)
-        << cs::www::app::api::CreateLogAPI().Process(
-               cs::www::app::protos::gencode::log::CreateLogRequestBuilderImpl()
+    // Skip logging database-service requests to prevent
+    // recursive JSON escaping
+    bool is_database_service_request =
+        request.path() == "/rpc/upsert/" ||
+        request.path() == "/rpc/query/";
+    // Disabled: http_logs and app_logs logging to prevent database-service requests
+    if (!is_database_service_request) {
+      LOG(DEBUG)
+          << cs::apps::trycopilotai::api::CreateLogAPI().Process(
+               cs::apps::trycopilotai::protos::gencode::log::CreateLogRequestBuilderImpl()
                    .set_request(
-                       cs::www::app::protos::gencode::log::
-                           HttpRequestBuilderImpl()
+                       cs::apps::trycopilotai::protos::gencode::
+                           log::HttpRequestBuilderImpl()
                                .set_receive_timestamp(
-                                   cs::www::app::protos::gencode::
-                                       log::TimestampBuilderImpl()
-                                           .set_iso8601(
-                                               cs::util::time::
-                                                   NowAsISO8601TimeUTC())
-                                           .Build())
+                                   cs::apps::trycopilotai::
+                                       protos::gencode::log::
+                                           TimestampBuilderImpl()
+                                               .set_iso8601(
+                                                   cs::util::time::
+                                                       NowAsISO8601TimeUTC())
+                                               .Build())
                                .set_method(request.method())
                                .set_path(request.path())
                                .set_content_type(
@@ -102,18 +130,19 @@ class WebApp {
                                .set_body(request.body())
                                .Build())
                    .set_response(
-                       cs::www::app::protos::gencode::log::
-                           HttpResponseBuilderImpl()
+                       cs::apps::trycopilotai::protos::gencode::
+                           log::HttpResponseBuilderImpl()
                                .set_send_timestamp(
-                                   cs::www::app::protos::gencode::
-                                       log::TimestampBuilderImpl()
-                                           .set_iso8601(
-                                               cs::util::time::
-                                                   NowAsISO8601TimeUTC())
-                                           .Build())
+                                   cs::apps::trycopilotai::
+                                       protos::gencode::log::
+                                           TimestampBuilderImpl()
+                                               .set_iso8601(
+                                                   cs::util::time::
+                                                       NowAsISO8601TimeUTC())
+                                               .Build())
                                .set_status(
-                                   cs::www::app::protos::
-                                       gencode::log::
+                                   cs::apps::trycopilotai::
+                                       protos::gencode::log::
                                            HttpStatusBuilderImpl()
                                                .set_code(
                                                    response
@@ -131,15 +160,17 @@ class WebApp {
                                .set_body(response.body())
                                .Build())
                    .set_result(
-                       cs::www::app::protos::gencode::log::
-                           ResultBuilderImpl()
+                       cs::apps::trycopilotai::protos::
+                           gencode::log::ResultBuilderImpl()
                                .set_code(
                                    response._result.code())
                                .set_message(response._result
                                                 .message())
                                .Build())
                    .Build())
-        << ENDL;
+          << ENDL;
+    }
+#endif  // #if 0
     return response;
   };
 
@@ -148,6 +179,7 @@ class WebApp {
                  std::function<cs::net::http::Response(
                      cs::net::http::Request)>>>
       handlers_;
+  std::unique_ptr<cs::net::http::Server> server_;
 };
 }  // namespace cs::net::http
 

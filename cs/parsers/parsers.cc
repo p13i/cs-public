@@ -1,3 +1,4 @@
+// cs/parsers/parsers.cc
 #include "cs/parsers/parsers.hh"
 
 #include <cmath>
@@ -60,7 +61,7 @@ Result MaybeConsumeWhitespace(std::string str,
                               unsigned int* cursor) {
   while (InBounds(str, *cursor)) {
     char c = str[*cursor];
-    if (c == ' ' || c == '\n' || c == '\t') {
+    if (c == ' ' || c == '\n' || c == '\t' || c == '\r') {
       OK_OR_RET(IncrementCursor(str, cursor));
     } else {
       break;
@@ -269,10 +270,10 @@ ResultOr<std::string> ConsumePrefix(std::string prefix,
     return TRACE(InvalidArgument("str.size() is 0"));
   }
   if (str.size() < prefix.size()) {
-    return TRACE(InvalidArgument(
+    return InvalidArgument(
         FMT("str.size()=%d must be greater than "
             "prefix.size()=%d",
-            str.size(), prefix.size())));
+            str.size(), prefix.size()));
   }
   if (str.rfind(prefix, /*start=*/0) == 0) {
     return str.substr(prefix.length());
@@ -281,6 +282,63 @@ ResultOr<std::string> ConsumePrefix(std::string prefix,
         FMT("Error: prefix not found. prefix=%s, str=%s",
             prefix.c_str(), str.c_str())));
   }
+}
+
+ResultOr<bool> HasFileExtension(std::string str,
+                                std::string extension) {
+  LOG(DEBUG) << "HasFileExtension(str=" << str
+             << ", extension=" << extension << ")" << ENDL;
+  if (str.size() < extension.size()) {
+    return false;
+  }
+  if (str.rfind(extension,
+                str.length() - extension.size()) ==
+      (str.length() - extension.size())) {
+    return true;
+  }
+  return false;
+}
+
+cs::ResultOr<unsigned int> FindFirstIndexOf(
+    std::string str, std::string target) {
+  unsigned int index = str.find_first_of(target);
+  OK_OR_RETURN(CheckInBounds(str, index));
+  return index;
+}
+
+ResultOr<std::string> ConsumeUntil(
+    std::string str, unsigned int* cursor,
+    std::string stopping_characters) {
+  std::stringstream ss;
+  while (InBounds(str, *cursor)) {
+    char c = str[*cursor];
+    if (stopping_characters.find(c) != std::string::npos) {
+      break;
+    }
+    ss << c;
+    OK_OR_RETURN(IncrementCursor(str, cursor));
+  }
+  return ss.str();
+}
+
+ResultOr<std::string> Consume(
+    std::string str, unsigned int* cursor,
+    std::string stopping_characters, std::string alphabet) {
+  std::stringstream ss;
+  while (InBounds(str, *cursor)) {
+    char c = str[*cursor];
+    if (stopping_characters.find(c) != std::string::npos) {
+      break;
+    }
+    if (alphabet.find(c) == std::string::npos) {
+      return TRACE(InvalidArgument(
+          FMT("Character '%c' not in alphabet '%s'", c,
+              alphabet.c_str())));
+    }
+    ss << c;
+    OK_OR_RETURN(IncrementCursor(str, cursor));
+  }
+  return ss.str();
 }
 
 }  // namespace cs::parsers

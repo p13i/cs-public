@@ -1,3 +1,4 @@
+// cs/net/json/object.hh
 #ifndef CS_NET_JSON_OBJECT_HH
 #define CS_NET_JSON_OBJECT_HH
 
@@ -107,101 +108,62 @@ class Object {
     }
   }
 
-  // as(...) overloads (preserve original behavior)
   float as(float /*instance*/) const {
-    if (std::holds_alternative<float>(_value))
+    if (std::holds_alternative<float>(_value)) {
       return std::get<float>(_value);
-    // original behavior returned NaN unless the stored
-    // number was float
+    }
+    if (std::holds_alternative<int>(_value)) {
+      return static_cast<float>(std::get<int>(_value));
+    }
     return NAN;
   }
 
   int as(int /*instance*/) const {
-    if (std::holds_alternative<int>(_value))
+    if (std::holds_alternative<int>(_value)) {
       return std::get<int>(_value);
-    // original behavior returned 0 unless the stored number
-    // was int
+    }
     return 0;
   }
 
   bool as(bool /*instance*/) const {
-    if (std::holds_alternative<bool>(_value))
+    if (std::holds_alternative<bool>(_value)) {
       return std::get<bool>(_value);
+    }
     return false;
   }
 
   std::string as(std::string /*instance*/) const {
-    if (const auto* p = std::get_if<std::string>(&_value))
+    if (const auto* p = std::get_if<std::string>(&_value)) {
       return *p;
+    }
     return "";
   }
 
   std::string as(const char* /*instance*/) const {
-    if (const auto* p = std::get_if<std::string>(&_value))
+    if (const auto* p = std::get_if<std::string>(&_value)) {
       return *p;
+    }
     return "";
   }
 
   KVMap as(KVMap /*instance*/) const {
-    if (const auto* p = std::get_if<KVMap>(&_value))
+    if (const auto* p = std::get_if<KVMap>(&_value)) {
       return *p;
+    }
     return {};
   }
 
   std::vector<Object> as(
       std::vector<Object> /*instance*/) const {
-    if (const auto* p = std::get_if<Array>(&_value))
+    if (const auto* p = std::get_if<Array>(&_value)) {
       return *p;
+    }
     return {};
   }
 
-  // Convenience accessors (preserved names/semantics)
-  bool as_bool() const {
-    if (const auto* p = std::get_if<bool>(&_value))
-      return *p;
-    return false;
-  }
-
-  std::string as_string() const {
-    return as(std::string());
-  }
-
-  std::vector<Object> as_array() const {
-    if (const auto* p = std::get_if<Array>(&_value))
-      return *p;
-    return {};
-  }
-
-  std::map<std::string, Object> as_map() const {
-    if (const auto* p = std::get_if<KVMap>(&_value))
-      return *p;
-    return {};
-  }
-
-  std::map<std::string, Object> map() { return as_map(); }
-
-  // is(...) overloads (preserved)
-  bool is(float /*instance*/) const {
-    return std::holds_alternative<float>(_value);
-  }
-  bool is(int /*instance*/) const {
-    return std::holds_alternative<int>(_value);
-  }
-  bool is(std::string /*instance*/) const {
-    return std::holds_alternative<std::string>(_value);
-  }
-  bool is(std::vector<Object> /*instance*/) const {
-    return std::holds_alternative<Array>(_value);
-  }
-
-  bool is_array() const {
-    return std::holds_alternative<Array>(_value);
-  }
-  bool is_map() const {
-    return std::holds_alternative<KVMap>(_value);
-  }
-  bool is_null() const {
-    return std::holds_alternative<std::monostate>(_value);
+  template <typename T>
+  bool is(T instance) const {
+    return std::holds_alternative<T>(_value);
   }
 
   // Index/key helpers
@@ -217,7 +179,6 @@ class Object {
            index < static_cast<int>(a->size());
   }
 
-  // get(key) family (preserved contracts)
   template <typename T>
   cs::ResultOr<T> get(const std::string& key,
                       T instance) const {
@@ -250,7 +211,6 @@ class Object {
     return (*a)[static_cast<size_t>(index)];
   }
 
-  // operator[] keeps error-returning cs::ResultOr<Object>
   cs::ResultOr<Object> operator[](const std::string& key) {
     return get(key);
   }
@@ -258,7 +218,6 @@ class Object {
     return get(index);
   }
 
-  // set(...)
   cs::Result set(unsigned int index, Object value) {
     auto* a = std::get_if<Array>(&_value);
     if (!a) {
@@ -289,10 +248,9 @@ class Object {
     return ss.str();
   }
 
-  // Expose raw storage if needed
   const Value& value() const { return _value; }
-  Value& value() { return _value; }
 
+ private:
   Value _value;
 };
 

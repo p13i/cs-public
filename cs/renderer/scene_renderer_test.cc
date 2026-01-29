@@ -1,3 +1,4 @@
+// cs/renderer/scene_renderer_test.cc
 #include "cs/renderer/scene_renderer.hh"
 
 #include "cs/renderer/film.hh"
@@ -16,31 +17,43 @@ using ::cs::renderer::linalg::transforms::LookAt;
 using ::cs::renderer::shapes::Plane;
 using ::cs::renderer::shapes::Sphere;
 
-TEST(SceneRenderer, 2x2) {
-  return;
-  // Setup camera
-  int pixels_per_unit = 1;
-  Transform w2c =
-      LookAt(p3(-1, 0, 0), p3(0, 0, 0), p3(0, 1, 0));
-  float focal_length = 2;
-  Camera camera(w2c, pixels_per_unit, focal_length,
-                Film(std::tuple<unsigned int, unsigned int>(
-                    256, 256)));
+TEST(SceneRenderer, RenderPixelHitAndMiss) {
+  Film film(std::tuple<unsigned int, unsigned int>(2, 2));
+  Camera camera(Transform(), 1, 1.0f, film);
 
-  // Setup scene
   std::vector<Shape*> shapes;
-  // Sphere right at origin
-  shapes.push_back(new Sphere(/*center=*/p3(0, 0, 0),
-                              /*radius=*/0.1));
-  // Plane on z-axis +10 units away from origin
-  shapes.push_back(new Plane(p3(0, 0, 1).unit(), -10));
-
+  shapes.push_back(new Sphere(p3(0, 0, 0), 0.5f));
   Scene scene(shapes);
-
-  // Setup renderer
   SceneRenderer renderer(camera, scene);
-  Film film = renderer.render();
 
-  Pixel** pixels = film.pixels;
-  EXPECT_EQ(pixels[128][128], Pixel(255, 255, 255, 255));
+  const Transform c2w = camera.w2c_.inverse();
+  const p3 focal_point =
+      c2w(p3(0.f, 0.f, -1.f * camera.focal_length_))
+          .value();
+  SceneRenderer::RenderContext ctx{
+      2, 2, 2.0f, 2.0f, c2w, focal_point,
+  };
+
+  renderer.RenderPixel(1, 1, ctx);
+  EXPECT_EQ(camera.film_.pixels[1][1].a, 255);
+
+  Scene empty_scene(std::vector<Shape*>{});
+  SceneRenderer empty_renderer(camera, empty_scene);
+  empty_renderer.RenderPixel(1, 1, ctx);
+  EXPECT_EQ(camera.film_.pixels[1][1].a, 0);
+
+  for (auto* shape : shapes) {
+    delete shape;
+  }
+}
+
+TEST(SceneRenderer, RenderReturnsFilm) {
+  Film film(std::tuple<unsigned int, unsigned int>(1, 1));
+  Camera camera(Transform(), 1, 1.0f, film);
+  Scene scene(std::vector<Shape*>{});
+  SceneRenderer renderer(camera, scene);
+  Film rendered = renderer.render();
+  auto [width, height] = rendered.dimensions();
+  EXPECT_EQ(width, 1u);
+  EXPECT_EQ(height, 1u);
 }

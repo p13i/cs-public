@@ -1,5 +1,8 @@
+// cs/net/proto/api.cc
 #include "cs/net/proto/api.hh"
 
+#include <chrono>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -20,6 +23,8 @@ std::string QueryParamsToJson(
     std::map<std::string, std::string> map) {
   cs::net::json::Object::KVMap kv;
   for (const auto& [key, value] : map) {
+    LOG(INFO) << "[DEBUG] QueryParamsToJson - key=" << key
+              << " value=" << value << ENDL;
     cs::net::json::Object obj;
     if (auto result = cs::parsers::ParseInt(value);
         result.ok()) {
@@ -30,7 +35,10 @@ std::string QueryParamsToJson(
     kv[key] = obj;
   }
   cs::net::json::Object json(kv);
-  return json.str();
+  std::string json_str = json.str();
+  LOG(INFO) << "[DEBUG] Generated JSON from " << map.size()
+            << " params: " << json_str << ENDL;
+  return json_str;
 }
 
 }  // namespace cs::net::proto::api

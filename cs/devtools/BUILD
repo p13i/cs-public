@@ -1,3 +1,7 @@
+# cs/devtools/BUILD
+load("@devtools_requirements//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
 package(default_visibility = ["//visibility:public"])
 
 py_binary(
@@ -23,6 +27,11 @@ py_binary(
     main = "enforce_header_guards.py",
 )
 
+py_library(
+    name = "enforce_header_guards_lib",
+    srcs = ["enforce_header_guards.py"],
+)
+
 py_binary(
     name = "move_cc",
     srcs = ["move_cc.py"],
@@ -44,12 +53,6 @@ py_binary(
 )
 
 py_binary(
-    name = "www",
-    srcs = ["www.py"],
-    python_version = "PY3",
-)
-
-py_binary(
     name = "lint_makefile",
     srcs = ["lint_makefile.py"],
     python_version = "PY3",
@@ -66,14 +69,6 @@ py_binary(
     srcs = ["gha.py"],
     main = "gha.py",
     visibility = ["//visibility:public"],
-)
-
-cc_binary(
-    name = "singlefile",
-    srcs = ["singlefile.cc"],
-    deps = [
-        "@curl",
-    ],
 )
 
 py_binary(
@@ -94,3 +89,101 @@ py_binary(
     srcs = ["publish_code.py"],
     main = "publish_code.py",
 )
+
+py_binary(
+    name = "filenames_in_comments",
+    srcs = ["filenames_in_comments.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "filenames_in_comments_lib",
+    srcs = ["filenames_in_comments.py"],
+)
+
+py_binary(
+    name = "format_black",
+    srcs = ["format_black.py"],
+    main = "format_black.py",
+    deps = [
+        requirement("black"),
+    ],
+)
+
+py_binary(
+    name = "codegen_goldens",
+    srcs = ["codegen_goldens.gpt.py"],
+    main = "codegen_goldens.gpt.py",
+    python_version = "PY3",
+)
+
+py_binary(
+    name = "test_endpoints",
+    srcs = ["test_endpoints.gpt.py"],
+    main = "test_endpoints.gpt.py",
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "load_generator",
+    srcs = ["load_generator.py"],
+    main = "load_generator.py",
+    python_version = "PY3",
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "expand_system",
+    srcs = ["expand_system.gpt.py"],
+    main = "expand_system.gpt.py",
+    python_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        requirement("pyyaml"),
+    ],
+)
+
+py_binary(
+    name = "generate_routing",
+    srcs = ["generate_routing.gpt.py"],
+    main = "generate_routing.gpt.py",
+    python_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        requirement("pyyaml"),
+    ],
+)
+
+py_binary(
+    name = "test_expand_system",
+    srcs = ["test_expand_system.gpt.py"],
+    main = "test_expand_system.gpt.py",
+    python_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        requirement("pyyaml"),
+    ],
+)
+
+py_binary(
+    name = "compute_service_hash",
+    srcs = ["compute_service_hash.gpt.py"],
+    main = "compute_service_hash.gpt.py",
+    python_version = "PY3",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "test_expand_system_unit",
+    srcs = [
+        "expand_system.gpt.py",
+        "test_expand_system_unit.gpt.py",
+    ],
+    main = "test_expand_system_unit.gpt.py",
+    python_version = "PY3",
+    deps = [
+        requirement("pyyaml"),
+    ],
+)
+
+exports_files(["requirements.txt"])

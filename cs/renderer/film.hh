@@ -1,3 +1,4 @@
+// cs/renderer/film.hh
 #ifndef CS_RENDERER_FILM_HH
 #define CS_RENDERER_FILM_HH
 

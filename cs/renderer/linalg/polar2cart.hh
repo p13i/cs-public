@@ -1,3 +1,4 @@
+// cs/renderer/linalg/polar2cart.hh
 #ifndef CS_RENDERER_LINALG_POLAR2CART_HH
 #define CS_RENDERER_LINALG_POLAR2CART_HH
 

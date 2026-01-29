@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# cs/devtools/use_usings.py
 """
 use_usings.py — Consolidate fully-qualified names into a single anonymous-namespace
                 using-block and safely shorten usages in C++ .cc files.

@@ -1,3 +1,4 @@
+// cs/net/http/favicon.hh
 #ifndef CS_NET_HTTP_FAVICON_HH
 #define CS_NET_HTTP_FAVICON_HH
 

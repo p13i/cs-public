@@ -1,3 +1,4 @@
+// cs/renderer/rainbow.h
 #ifndef CS_RENDERER_RAINBOW_H
 #define CS_RENDERER_RAINBOW_H
 

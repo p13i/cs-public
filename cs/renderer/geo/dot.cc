@@ -1,3 +1,4 @@
+// cs/renderer/geo/dot.cc
 #include "cs/renderer/geo/dot.hh"
 
 #include "cs/renderer/geo/point3.h"

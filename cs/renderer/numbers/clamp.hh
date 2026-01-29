@@ -1,3 +1,4 @@
+// cs/renderer/numbers/clamp.hh
 #ifndef CS_RENDERER_NUMBERS_CLAMP_HH
 #define CS_RENDERER_NUMBERS_CLAMP_HH
 

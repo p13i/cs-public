@@ -1,3 +1,4 @@
+// cs/renderer/sphere_renderer.hh
 #ifndef CS_RENDERER_SPHERE_RENDERER_HH
 #define CS_RENDERER_SPHERE_RENDERER_HH
 

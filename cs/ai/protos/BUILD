@@ -1,3 +1,4 @@
+# cs/ai/protos/BUILD
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//cs/net/proto/codegen:proto_codegen.bzl", "proto_codegen_cc_library")
 

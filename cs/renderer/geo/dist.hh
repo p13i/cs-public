@@ -1,3 +1,4 @@
+// cs/renderer/geo/dist.hh
 #ifndef CS_RENDERER_GEO_DIST_HH
 #define CS_RENDERER_GEO_DIST_HH
 

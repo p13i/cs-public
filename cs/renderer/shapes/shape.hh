@@ -1,3 +1,4 @@
+// cs/renderer/shapes/shape.hh
 #ifndef CS_RENDERER_SHAPES_SHAPE_HH
 #define CS_RENDERER_SHAPES_SHAPE_HH
 

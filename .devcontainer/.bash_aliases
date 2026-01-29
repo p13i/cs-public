@@ -1,0 +1,26 @@
+alias m='make'
+alias dc='docker compose'
+
+alias dcup='docker compose up -d'
+alias dcdown='docker compose down'
+alias dclogs='docker compose logs -f'
+alias dcps='docker compose ps'
+alias dcexec='docker compose exec'
+
+alias b='USE_BAZEL_VERSION=8.4.2 npx --yes @bazel/bazelisk'
+alias bb='USE_BAZEL_VERSION=8.4.2 npx --yes @bazel/bazelisk build'
+alias bt='USE_BAZEL_VERSION=8.4.2 npx --yes @bazel/bazelisk test'
+alias br='USE_BAZEL_VERSION=8.4.2 npx --yes @bazel/bazelisk run'
+
+alias mb='make build'
+alias mt='make test'
+alias ml='make lint'
+alias mup='make up'
+alias mdown='make down'
+alias mlogs='make logs'
+
+alias gs='git status'
+alias gd='git diff'
+alias gco='git checkout'
+alias gcm='git commit -m'
+alias gst='git stash'

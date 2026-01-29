@@ -14,7 +14,6 @@
 /.ijwb/
 /.project
 /.settings
-/.vscode/
 /bazel.iml
 # Ignore all bazel-* symlinks. There is no full list since this can change
 # based on the name of the directory bazel is cloned into.
@@ -35,12 +34,15 @@ user.bazelrc
 # npm
 /node_modules/
 data.json
+package-lock.json
 # app files
 /data/
 # Bazel Buildifier
 /buildtools/
 # Generated code
 **/gencode/*
+# Track codegen goldens for tests.
+!cs/net/proto/codegen/testdata/golden/**/gencode/*
 # Lock files
 *.lock
 # App binary files
@@ -50,5 +52,22 @@ venv/
 .venv/
 # App logs
 *.log
+build.log
 out/
-!.env
+/bin/
+package-lock.json
+*.pyc
+**/__pycache__/**
+
+# Generated routing configs (auto-generated from system.gpt.yml)
+routing.json
+routing.dev.json
+
+# Generated Docker configs (auto-generated from system.gpt.yml)
+docker*.yml
+Dockerfile
+
+# C# lab build artifacts
+/cs/labs/csharp/bin/
+/cs/labs/csharp/obj/
+/cs/labs/csharp/.vs/

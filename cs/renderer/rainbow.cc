@@ -1,3 +1,4 @@
+// cs/renderer/rainbow.cc
 #include "cs/renderer/rainbow.h"
 
 #include <cmath>

@@ -1,3 +1,4 @@
+# cs/q/kth_largest_value/BUILD
 package(default_visibility = ["//visibility:public"])
 
 cc_test(
@@ -15,11 +16,5 @@ cc_library(
     name = "kth_largest_value",
     srcs = ["kth_largest_value.c"],
     hdrs = ["kth_largest_value.h"],
-    deps = [":priority_queue"],
-)
-
-cc_library(
-    name = "priority_queue",
-    srcs = ["priority_queue.c"],
-    hdrs = ["priority_queue.h"],
+    deps = ["//cs/q/priority_queue"],
 )

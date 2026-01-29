@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# cs/devtools/gha.py
 """
 Run a GitHub Actions workflow *locally* using `act`, with robust image pre-pull,
 retries, and optional auto-install of act into a user-writable directory.
@@ -27,7 +28,16 @@ import time
 from pathlib import Path
 
 
-def run(cmd, *, cwd=None, timeout=None, check=False, env=None, capture_output=False):
+def run(
+    cmd,
+    *,
+    cwd=None,
+    timeout=None,
+    check=False,
+    env=None,
+    capture_output=False,
+    shell=True,
+):
     return subprocess.run(
         cmd,
         cwd=cwd,
@@ -36,6 +46,7 @@ def run(cmd, *, cwd=None, timeout=None, check=False, env=None, capture_output=Fa
         env=env,
         text=True,
         capture_output=capture_output,
+        shell=shell,
     )
 
 

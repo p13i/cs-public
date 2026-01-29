@@ -1,3 +1,4 @@
+// cs/renderer/scene.cc
 #include "cs/renderer/scene.hh"
 
 #include <limits>

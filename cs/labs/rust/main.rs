@@ -1,6 +1,4 @@
-extern crate hello_lib;
-
 fn main() {
-    let hello = hello_lib::Greeter::new("Hello");
-    hello.greet("world");
+    let message = hello_lib::say_hello("World");
+    println!("{}", message);
 }

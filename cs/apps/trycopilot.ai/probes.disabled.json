@@ -1,0 +1,268 @@
+[
+  {
+    "request": {
+      "method": "GET",
+      "url": "/home/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/code/test"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/logs/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/app_logs/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/logout/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/quit/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/api/uuid/"
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "uuid": ""
+      }
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/api/uuid/?format=json"
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "uuid": ""
+      }
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/api/log/"
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json"
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "url": "/api/login/",
+      "data": {
+        "email": "test@example.com",
+        "password": "testpassword123"
+      }
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json"
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "url": "/api/logout/",
+      "data": {
+        "token_uuid": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json"
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "url": "/api/user/",
+      "data": {
+        "email": "newuser@example.com",
+        "password": "SecurePassword123!",
+        "confirm_password": "SecurePassword123!"
+      }
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "email": "newuser@example.com"
+      }
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "url": "/rpc/users/",
+      "data": {
+        "email": "rpcuser@example.com",
+        "password": "RpcPassword123!",
+        "confirm_password": "RpcPassword123!"
+      }
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "email": "rpcuser@example.com"
+      }
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/db/hi"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/db/test"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/db/user/123"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "url": "/db/test",
+      "data": {
+        "value": "test data"
+      }
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "url": "/db/key/value",
+      "data": {
+        "value": "some value"
+      }
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/api/game/animation/?width=4&height=4&num_frames=1"
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json"
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "url": "/api/ui/event/",
+      "data": {
+        "handler_id": "demo/subscribe",
+        "payload": "{\"email\":\"test@example.com\"}"
+      }
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/api/ui/doc/?handler_id=demo/subscribe"
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/api/ui/stream/?handler_id=demo/subscribe"
+    },
+    "expectedResponse": {
+      "status": 200,
+      "contentType": "application/json"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/game/index.js"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/game/index.wasm"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  }
+]

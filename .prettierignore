@@ -1,5 +1,34 @@
+# Build systems
 bazel*
+out/
+dist/
+build/
+.cache/
+
+# Dependencies
+node_modules/
+.venv/
+
+# Data and external
 data/
 ext/
-.venv/
-node_modules/
+
+# Generated files
+**/gencode/**
+
+# Lock files
+package-lock.json
+yarn.lock
+*.lock
+
+# Logs
+*.log
+.cursor/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Minified files
+*.min.js
+*.min.css

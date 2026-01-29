@@ -1,0 +1,24 @@
+name: agents
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  run-agent-prompt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run continuous integration prompt
+        # prettier-ignore
+        run: MSG="$(cat agents/.prompts/runContinuousIntegration.prompt.gpt.md)" make prompt

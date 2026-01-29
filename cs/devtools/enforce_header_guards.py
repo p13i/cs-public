@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+# cs/devtools/enforce_header_guards.py
 """
 Audit and enforce canonical C/C++ header guards based on repository-relative paths.
 
 Rule (default): for a header at repo path like
-    cs/www/app/protos/my_proto.hh
+    cs/apps/trycopilot.ai/protos/my_proto.hh
 expected guard is
-    CS_APP_PROTOS_MY_PROTO_HH
+    CS_APPS_TRYCOPILOT_AI_PROTOS_MY_PROTO_HH
 
 Behavior:
   • Audit mode (default): scans headers, prints a report of OK/MISMATCH/MISSING.
@@ -21,6 +22,7 @@ Assumptions & customization:
     multiple underscores collapsed; leading digits are prefixed with an underscore.
   • Excluded directories by default: .git, .hg, .svn, build, bazel-*, out, third_party (editable via CLI).
   • The script attempts to detect a classic guard of the form:
+        // cs/path/to/header.hh
         #ifndef GUARD
         #define GUARD
         ...
@@ -31,7 +33,7 @@ Assumptions & customization:
 Usage examples:
   • Audit only:    python3 enforce_header_guards.py
   • Apply fixes:   python3 enforce_header_guards.py --apply
-  • Limit to path: python3 enforce_header_guards.py --paths cs/www/app/protos include/
+  • Limit to path: python3 enforce_header_guards.py --paths cs/apps/trycopilot.ai/protos include/
 
 Requires: Python 3.8+ and git available on PATH.
 """
@@ -132,7 +134,7 @@ _guard_token_re = re.compile(r"[^A-Za-z0-9]+")
 def path_to_guard(rel: Path) -> str:
     """Turn a repo-relative path into a canonical macro guard.
 
-    Example: cs/www/app/protos/my_proto.hh → CS_APP_PROTOS_MY_PROTO_HH
+    Example: cs/apps/trycopilot.ai/protos/my_proto.hh → CS_APPS_TRYCOPILOT_AI_PROTOS_MY_PROTO_HH
     """
     # Use POSIX-style path with forward slashes for stable results.
     s = rel.as_posix()
@@ -377,6 +379,8 @@ def main(argv: Sequence[str]) -> int:
 
     infos: List[GuardInfo] = []
     for f in files:
+        if "node_modules" in str(f):
+            continue
         info = audit_file(root, f)
         infos.append(info)
         if not args.quiet or info.kind != "OK":
@@ -410,12 +414,12 @@ def main(argv: Sequence[str]) -> int:
         if n_mismatch == 0:
             print("\nNothing to rewrite: no mismatched guards found.")
         # Enforce git cleanliness before modifying anything
-        if not git_is_clean(root):
-            print(
-                "\nRefusing to modify files: git working tree is not clean. Commit or stash your changes and retry.",
-                file=sys.stderr,
-            )
-            return 2
+        # if not git_is_clean(root):
+        #     print(
+        #         "\nRefusing to modify files: git working tree is not clean. Commit or stash your changes and retry.",
+        #         file=sys.stderr,
+        #     )
+        #     return 2
 
         changed = 0
         for info in infos:
@@ -424,6 +428,7 @@ def main(argv: Sequence[str]) -> int:
             path = root / info.rel
             data = path.read_text(encoding="utf-8", errors="replace")
             new_data = rewrite_guard(data, info.found, info.expected)
+            new_data = "// " + str(info.rel) + "\n" + new_data  # ensure header comment
             if new_data != data:
                 path.write_text(new_data, encoding="utf-8")
                 print(f"Rewrote guard in {info.rel}: {info.found} → {info.expected}")

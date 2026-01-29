@@ -1,3 +1,4 @@
+// cs/renderer/audio/sinusodal.h
 #ifndef CS_RENDERER_AUDIO_SINUSODAL_H
 #define CS_RENDERER_AUDIO_SINUSODAL_H
 namespace cs::audio {

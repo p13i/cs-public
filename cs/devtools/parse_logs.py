@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # cs/devtools/parse_logs.py
 #!/usr/bin/env python3
 import argparse

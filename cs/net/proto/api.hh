@@ -1,3 +1,4 @@
+// cs/net/proto/api.hh
 #ifndef CS_NET_PROTO_API_HH
 #define CS_NET_PROTO_API_HH
 
@@ -74,6 +75,9 @@ template <typename Implementation, typename RequestProto,
           typename ResponseProto>
 class API {
  public:
+  using RequestType = RequestProto;
+  using ResponseType = ResponseProto;
+
   static cs::net::http::Response HttpHandler(
       cs::net::http::Request request) {
     RequestProto request_proto;

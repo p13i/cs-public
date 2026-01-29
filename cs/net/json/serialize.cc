@@ -1,7 +1,10 @@
+// cs/net/json/serialize.cc
 #include "cs/net/json/serialize.hh"
 
 #include <cstdint>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 
 #include "cs/net/json/object.hh"
@@ -41,10 +44,10 @@ std::string SerializeObject(const Object& object,
 std::ostream& SerializeObjectPrettyPrintRecurse(
     std::ostream& os, const Object& object,
     unsigned int indent, unsigned int initial_indent) {
-  if (object.is_null()) {
+  if (object.type() == Type::kNull) {
     os << "null";
   } else if (object.type() == Type::kBoolean) {
-    if (object.as_bool()) {
+    if (object.as(bool())) {
       os << "true";
     } else {
       os << "false";
@@ -53,29 +56,49 @@ std::ostream& SerializeObjectPrettyPrintRecurse(
     if (object.is(int())) {
       os << object.as(int());
     } else if (object.is(float())) {
-      os << object.as(float());
+      auto old_precision = os.precision();
+      os << std::setprecision(
+                std::numeric_limits<float>::digits10 + 1)
+         << object.as(float());
+      os.precision(old_precision);
     } else {
       // Should not reach this code.
-      os << "\"INVARIANT_ERROR\"";
+      os << "\"INVARIANT_ERROR\"";  // LCOV_EXCL_LINE
     }
   } else if (object.type() == Type::kString) {
-    auto s = object.as_string();
+    std::string s = object.as(std::string());
     os << '"';
-    for (char c : s) {
-      if (c == '\\' || c == '\n' || c == '\r' ||
-          c == '\"') {
-        os << "\\";
-        if (c == '\\') {
-          os << '\\';
-        } else if (c == '\n') {
-          os << 'n';
-        } else if (c == '\r') {
-          os << 'r';
-        } else if (c == '\"') {
-          os << '"';
-        }
-      } else {
-        os << c;
+    for (unsigned char c : s) {
+      switch (c) {
+        case '\\':
+          os << "\\\\";
+          break;
+        case '"':
+          os << "\\\"";
+          break;
+        case '\b':
+          os << "\\b";
+          break;
+        case '\f':
+          os << "\\f";
+          break;
+        case '\n':
+          os << "\\n";
+          break;
+        case '\r':
+          os << "\\r";
+          break;
+        case '\t':
+          os << "\\t";
+          break;
+        default:
+          if (c < 0x20) {
+            os << "\\u" << std::hex << std::setw(4)
+               << std::setfill('0') << static_cast<int>(c)
+               << std::dec << std::setfill(' ');
+          } else {
+            os << static_cast<char>(c);
+          }
       }
     }
     os << '"';
@@ -85,7 +108,8 @@ std::ostream& SerializeObjectPrettyPrintRecurse(
       os << "\n";
     }
     bool first = true;
-    for (const auto& elem : object.as_array()) {
+    for (const auto& elem :
+         object.as(std::vector<Object>())) {
       if (!first) {
         os << ",";
         if (indent > 0) {
@@ -109,7 +133,8 @@ std::ostream& SerializeObjectPrettyPrintRecurse(
       os << "\n";
     }
     bool first = true;
-    for (const auto& kv : object.as_map()) {
+    for (const auto& kv :
+         object.as(std::map<std::string, Object>())) {
       if (!first) {
         os << ",";
         if (indent > 0) {

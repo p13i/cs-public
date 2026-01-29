@@ -1,0 +1,17 @@
+CompileFlags:
+  CompilationDatabase: /workspaces/cs
+  # Make headers reachable when there is no compile_commands.json.
+  Add:
+    - -std=c++17
+    - -I/workspaces/cs
+    - -I/workspaces/cs/cs
+    - -I/workspaces/cs/bazel-bin
+    - -I/workspaces/cs/bazel-out
+    - -I/workspaces/cs/bazel-out/host
+    - -I/workspaces/cs/bazel-bin/external
+    - -I/workspaces/cs/bazel-out/k8-fastbuild/bin
+    - -I/workspaces/cs/bazel-out/k8-fastbuild/bin/external
+    - -Wno-everything
+
+Index:
+  Background: Build

@@ -1,3 +1,4 @@
+// cs/renderer/geo/point3.h
 #ifndef CS_RENDERER_GEO_POINT3_H
 #define CS_RENDERER_GEO_POINT3_H
 

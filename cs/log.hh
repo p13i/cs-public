@@ -1,8 +1,10 @@
+// cs/log.hh
 #ifndef CS_LOG_HH
 #define CS_LOG_HH
 
 #include <stdio.h>
 
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <ostream>
@@ -12,17 +14,19 @@
 
 #define LOG_PRETTY_FUNCTION false
 #if LOG_PRETTY_FUNCTION
-#define LOG(level)                                         \
-  std::cout << "["                                         \
-            << cs::util::time::NowAsISO8601TimeUTC()       \
-            << "] [" << #level << "] [" << __FILE__ << ":" \
-            << __LINE__ << "] [" << __PRETTY_FUNCTION__    \
+#define LOG(level)                                      \
+  std::cout << "["                                      \
+            << cs::util::time::NowAsISO8601TimeUTC()    \
+            << "] [" << std::setw(7) << std::left       \
+            << #level << "] [" << __FILE__ << ":"       \
+            << __LINE__ << "] [" << __PRETTY_FUNCTION__ \
             << "] "
 #else
-#define LOG(level)                                         \
-  std::cout << "["                                         \
-            << cs::util::time::NowAsISO8601TimeUTC()       \
-            << "] [" << #level << "] [" << __FILE__ << ":" \
+#define LOG(level)                                   \
+  std::cout << "["                                   \
+            << cs::util::time::NowAsISO8601TimeUTC() \
+            << "] [" << std::setw(7) << std::left    \
+            << #level << "] [" << __FILE__ << ":"    \
             << __LINE__ << "] "
 #endif  // LOG_PRETTY_FUNCTION
 

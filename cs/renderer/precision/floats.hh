@@ -1,3 +1,4 @@
+// cs/renderer/precision/floats.hh
 #ifndef CS_RENDERER_PRECISION_FLOATS_HH
 #define CS_RENDERER_PRECISION_FLOATS_HH
 

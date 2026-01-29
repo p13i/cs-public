@@ -1,7 +1,19 @@
 on:
+  schedule:
+    - cron: "59 23 * * WED,SAT"
   push:
     branches:
-      - "**"
+      - "main"
+  pull_request:
+    paths:
+      - "cs/**"
+      - ".bazelrc"
+      - ".clang-format"
+      - ".env"
+      - ".prettierignore"
+      - "**.BUILD"
+      - "Makefile"
+      - "**.bazel"
 
 permissions:
   contents: write
@@ -13,9 +25,17 @@ defaults:
 
 jobs:
   bazel:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
+      - name: Install base deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl gnupg git make python3 \
+            python3-pip build-essential openjdk-17-jdk-headless \
+            nodejs npm
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -58,6 +78,43 @@ jobs:
           restore-keys: |
             pip-${{ runner.os }}-
 
+      # ---- Pin toolchain versions for lint consistency ----
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.17.0"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.7"
+
+      - name: Install Bazelisk
+        run: |
+          sudo rm -f /usr/local/bin/bazel
+          sudo curl -fsSL https://github.com/bazelbuild/bazelisk/releases/download/v1.21.0/bazelisk-linux-amd64 -o /usr/local/bin/bazel
+          sudo chmod +x /usr/local/bin/bazel
+
+      - name: Install clang-format 18
+        run: |
+          sudo apt-get update
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | \
+            sudo gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-18 main" | \
+            sudo tee /etc/apt/sources.list.d/llvm-toolchain-noble-18.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang-format-18=1:18.1.8~++20240731025043+3b5b5c1ec4a3-1~exp1~20240731145144.92 \
+            lcov=2.0-4ubuntu2
+          sudo ln -sf /usr/bin/clang-format-18 /usr/local/bin/clang-format
+
+      - name: Install JS formatters
+        run: npm install -g prettier@3.7.4
+        #  prettier-plugin-rust@0.4.1
+
+      # - name: Install buildifier
+      #   run: GOBIN=/usr/local/bin go install github.com/bazelbuild/buildtools/buildifier@v6.4.0
+
       # ---- Setup once (reused by all following steps in this job) ----
       - name: Setup
         run: make setup
@@ -65,6 +122,17 @@ jobs:
       # ---- Lint & auto-fix; open PR if diffs were produced ----
       - name: Run linters (may modify files)
         run: make lint
+
+      - name: Show lint diffs
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet --ignore-submodules --; then
+            echo "Unstaged diff:"
+            git --no-pager diff
+          else
+            echo "No unstaged diff."
+          fi
 
       - name: Assert no diffs (captures outcome)
         id: assert
@@ -99,6 +167,17 @@ jobs:
       - name: Test
         if: ${{ steps.assert.outcome == 'success' }}
         run: make test
+
+      - name: Coverage
+        if: ${{ steps.assert.outcome == 'success' }}
+        run: make coverage
+
+      - name: Upload coverage (Codecov)
+        if: ${{ steps.assert.outcome == 'success' }}
+        uses: codecov/codecov-action@v4
+        with:
+          files: bazel-out/_coverage/_coverage_report.dat
+          token: ${{ secrets.CODECOV_TOKEN }}
       
       # ---- Conditional release & PR ----
       - name: Compute release metadata
@@ -135,6 +214,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "[release] v${{ steps.relmeta.outputs.version }} (${{ steps.relmeta.outputs.short_sha }})"
           title: "[release] v${{ steps.relmeta.outputs.version }} (${{ steps.relmeta.outputs.short_sha }})"
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.ref_name || github.event.repository.default_branch }}
           branch: ${{ steps.relmeta.outputs.branch_name }}
           body: |
             Automated release PR from `${{ github.ref_name }}` at `${{ github.sha }}`.
@@ -143,3 +223,8 @@ jobs:
             Triggered by `ci:release` in the commit message.
           labels: release
           reviewers: ${{ github.actor }}
+
+      - name: Cause job failure if assertion step failed
+        id: assertion-exit
+        if: ${{ steps.assert.outcome == 'failure' }}
+        run: exit 1

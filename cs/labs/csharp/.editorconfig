@@ -1,0 +1,8 @@
+# 60-col limit required for the C# lab toolchain.
+root = false
+
+[*.cs]
+max_line_length = 60
+
+[*.csproj]
+max_line_length = 60

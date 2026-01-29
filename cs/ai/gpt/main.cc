@@ -65,6 +65,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <bitset>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -75,6 +76,7 @@
 #include <iostream>
 #include <mutex>
 #include <random>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -82,7 +84,11 @@
 #include <utility>
 #include <vector>
 
+#include "cs/ai/gpt/gpt_core.hh"
+#include "cs/ai/gpt/protos/config.proto.hh"
+#include "cs/ai/gpt/wikipedia.hh"
 #include "cs/log.hh"
+#include "cs/parsers/arg_parser.gpt.hh"
 #include "cs/result.hh"
 
 // =============================== Config
@@ -94,6 +100,8 @@ constexpr int kMaxOrder = 7;    // 1..7
 constexpr int kVocabSize = 95;  // printable ASCII [32..126]
 constexpr int kTrainDocs =
     1200;  // ~1200 random Wikipedia summaries
+constexpr size_t kPopularDocsTarget = 80;
+constexpr size_t kPopularDocsMin = 50;  // minimum usable
 constexpr int kMaxThreadsCap = 64;  // training threads cap
 constexpr size_t kGenLen = 320;     // continuation length
 
@@ -132,8 +140,13 @@ std::string GptEvaluate(std::string userInput);
 // ==================================
 
 cs::Result GptApp(std::vector<std::string> argv) {
-  for (const auto& a : argv)
-    if (a == "--train") g_force_retrain = true;
+  SET_OR_RET(
+      auto config,
+      cs::parsers::ParseArgs<cs::ai::gpt::protos::Config>(
+          argv));
+  if (config.train) {
+    g_force_retrain = true;
+  }
 
   std::ios::sync_with_stdio(false);
   std::cin.tie(nullptr);
@@ -146,9 +159,11 @@ cs::Result GptApp(std::vector<std::string> argv) {
   return cs::Ok();
 }
 
+#ifndef GPT_NO_MAIN
 int main(int argc, char* argv[]) {
   return cs::Result::Main(argc, argv, GptApp);
 }
+#endif  // GPT_NO_MAIN
 
 // ================================ Utils
 // =====================================
@@ -254,6 +269,59 @@ std::string FetchRandomWikipediaText(size_t count) {
           std::chrono::milliseconds(10));
   }
   return all;
+}
+
+std::string StripHtmlToText(const std::string& html) {
+  // Remove tags.
+  std::string text =
+      std::regex_replace(html, std::regex("<[^>]*>"), " ");
+  // Common entities.
+  text =
+      std::regex_replace(text, std::regex("&nbsp;"), " ");
+  text = std::regex_replace(text, std::regex("&amp;"), "&");
+  text =
+      std::regex_replace(text, std::regex("&quot;"), "\"");
+  text = std::regex_replace(text, std::regex("&#39;"), "'");
+  text = std::regex_replace(text, std::regex("&lt;"), "<");
+  text = std::regex_replace(text, std::regex("&gt;"), ">");
+  return text;
+}
+
+std::string FetchPopularWikipediaText(size_t target_count,
+                                      size_t min_success) {
+  auto articles_or =
+      cs::ai::gpt::DownloadMostPopularArticles(
+          static_cast<unsigned int>(target_count));
+  if (!articles_or.ok()) {
+    Warn("Failed to fetch popular Wikipedia articles: " +
+         articles_or.message());
+    return "";
+  }
+
+  const auto& articles = articles_or.value();
+  if (articles.empty()) {
+    Warn("No popular Wikipedia articles returned.");
+    return "";
+  }
+
+  size_t used = 0;
+  std::string corpus;
+  for (const auto& html : articles) {
+    corpus.append(StripHtmlToText(html));
+    corpus.push_back('\n');
+    ++used;
+  }
+
+  if (used < min_success) {
+    Warn("Popular corpus too small (wanted " +
+         std::to_string(min_success) + ", got " +
+         std::to_string(used) + ").");
+    return "";
+  }
+
+  Info("Assembled popular Wikipedia corpus with " +
+       std::to_string(used) + " documents.");
+  return corpus;
 }
 
 // Convert to printable ASCII, collapse whitespace
@@ -633,13 +701,6 @@ class NGramLM {
     const float gamma =
         1.25f;  // growth per extra match char
     for (int L = 1; L <= maxL; ++L) {
-      bool ok = true;
-      for (int d = 0; d < L; ++d) {
-        if (hist[H - 1 - d] != hist[H - 1 - L - d]) {
-          ok = false;
-          break;
-        }
-      }
       // Even if the immediate previous L don't match, scan
       // the window for matches of the current suffix of
       // length L. Target suffix S = hist[(H-L)..(H-1)]
@@ -964,7 +1025,7 @@ NGramLM& GlobalModel() {
   return *m;
 }
 
-bool EnsureModelReady() {
+bool EnsureModelReadyImpl() {
   NGramLM& M = GlobalModel();
   if (!g_force_retrain && M.trained()) return true;
 
@@ -976,7 +1037,14 @@ bool EnsureModelReady() {
   Info(std::string("Training reasoned 7-gram model (") +
        (g_force_retrain ? "forced" : "fresh") + ")...");
   const auto t0 = std::chrono::steady_clock::now();
-  std::string raw = FetchRandomWikipediaText(kTrainDocs);
+  std::string raw = FetchPopularWikipediaText(
+      kPopularDocsTarget, kPopularDocsMin);
+  if (raw.empty()) {
+    Warn(
+        "Popular Wikipedia corpus unavailable; falling "
+        "back to random summaries.");
+    raw = FetchRandomWikipediaText(kTrainDocs);
+  }
   std::string clean = ToPrintableAscii(raw);
   if (clean.size() < 4096) {
     Warn(
@@ -1009,10 +1077,56 @@ bool EnsureModelReady() {
   return true;
 }
 
+cs::Result TrainPopularWikipediaModelImpl(
+    size_t target_count, size_t min_success) {
+  g_force_retrain = true;
+  NGramLM& M = GlobalModel();
+
+  std::string raw =
+      FetchPopularWikipediaText(target_count, min_success);
+  if (raw.empty()) {
+    return TRACE(
+        cs::Error("Popular Wikipedia corpus unavailable."));
+  }
+
+  std::string clean = ToPrintableAscii(raw);
+  if (clean.size() < 4096) {
+    return TRACE(cs::Error(
+        "Popular corpus too small to train model."));
+  }
+
+  const int threads_hint = std::min(
+      std::max(1u, std::thread::hardware_concurrency()),
+      (unsigned)kMaxThreadsCap);
+  const auto t0 = std::chrono::steady_clock::now();
+  M.Train(clean, threads_hint);
+  const auto t1 = std::chrono::steady_clock::now();
+  Info(
+      "Popular-corpus training finished in " +
+      std::to_string(std::chrono::duration_cast<
+                         std::chrono::milliseconds>(t1 - t0)
+                         .count()) +
+      " ms.");
+
+  if (!M.Save(kModelPath))
+    Warn("Could not save model to /tmp (continuing).");
+  else
+    Info("Saved model to /tmp.");
+  return cs::Ok();
+}
+
 }  // namespace
 
 // =========================== Public Entry Point
 // =============================
+
+bool EnsureModelReady() { return EnsureModelReadyImpl(); }
+
+cs::Result TrainPopularWikipediaModel(size_t target_count,
+                                      size_t min_success) {
+  return TrainPopularWikipediaModelImpl(target_count,
+                                        min_success);
+}
 
 std::string GptEvaluate(std::string userInput) {
   try {

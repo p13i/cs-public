@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# cs/net/proto/codegen/validator.py
 from cs.net.proto.codegen.codegen_types import Types
 
 
@@ -10,6 +12,7 @@ def ValidateProtos(PROTOS):
         Types.BOOL,
         Types.INT,
         Types.VECTOR,
+        Types.MAP,
     } | set(PROTOS.keys())
 
     for struct_name, struct in PROTOS.items():

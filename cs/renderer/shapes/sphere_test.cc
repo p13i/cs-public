@@ -1,3 +1,4 @@
+// cs/renderer/shapes/sphere_test.cc
 #include "cs/renderer/shapes/sphere.hh"
 
 #include "cs/renderer/math/constants.h"
@@ -76,4 +77,23 @@ TEST(Sphere, IntersectionInQuadrantOne) {
                5 - sqrtf(3) / 3));
   EXPECT_EQ(normal, v3(p3(-sqrtf(3) / 3, -sqrtf(3) / 3,
                           -sqrtf(3) / 3)));
+}
+
+TEST(Sphere, RejectsNonUnitRay) {
+  r3 ray(p3(0, 0, 0), p3(1, 0, 0));
+  ray.direction = v3(2.0f, 0.0f, 0.0f);
+  cs::renderer::shapes::Sphere sphere(p3(5, 0, 0), 1);
+  p3 intersection;
+  v3 normal;
+  EXPECT_FALSE(
+      sphere.intersected_by(ray, &intersection, &normal));
+}
+
+TEST(Sphere, RejectsMissingSphere) {
+  r3 ray(p3(0, 0, 0), p3(1, 0, 0));
+  cs::renderer::shapes::Sphere sphere(p3(0, 0, 5), 1);
+  p3 intersection;
+  v3 normal;
+  EXPECT_FALSE(
+      sphere.intersected_by(ray, &intersection, &normal));
 }

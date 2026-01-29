@@ -1,3 +1,4 @@
+// cs/renderer/geo/cross_test.cc
 #include "cs/renderer/geo/cross.hh"
 
 #include "cs/renderer/geo/point3.h"

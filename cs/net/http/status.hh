@@ -1,3 +1,4 @@
+// cs/net/http/status.hh
 #ifndef CS_NET_HTTP_STATUS_HH
 #define CS_NET_HTTP_STATUS_HH
 
@@ -40,6 +41,10 @@ static const Status HTTP_400_BAD_REQUEST(400,
 static const Status HTTP_403_PERMISSION_DENIED(
     403, "PERMISSION DENIED");
 static const Status HTTP_404_NOT_FOUND(404, "NOT FOUND");
+static const Status HTTP_502_BAD_GATEWAY(502,
+                                         "BAD GATEWAY");
+static const Status HTTP_503_SERVICE_UNAVAILABLE(
+    503, "SERVICE UNAVAILABLE");
 static const Status HTTP_500_INTERNAL_SERVER_ERROR(
     500, "INTERNAL SERVER ERROR");
 

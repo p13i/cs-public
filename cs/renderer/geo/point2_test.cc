@@ -1,9 +1,13 @@
+// cs/renderer/geo/point2_test.cc
 #include "cs/renderer/geo/point2.hh"
+
+#include <sstream>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 using p2 = ::cs::renderer::geo::Point2;
+using ::testing::HasSubstr;
 
 TEST(Point2, OperatorAdd) {
   EXPECT_EQ(p2(1, 2) + p2(4, 5), p2(5, 7));
@@ -19,4 +23,10 @@ TEST(Point3, OperatorMultiply) {
 
 TEST(Point3, OperatorDivide) {
   EXPECT_EQ(p2(1, 2) / 3, p2(1 / 3.f, 2 / 3.f));
+}
+
+TEST(Point2, StreamOutput) {
+  std::ostringstream os;
+  os << p2(1.5f, -2.0f);
+  EXPECT_THAT(os.str(), HasSubstr("Point2("));
 }

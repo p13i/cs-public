@@ -1,3 +1,4 @@
+// cs/renderer/geo/dot.hh
 #ifndef CS_RENDERER_GEO_DOT_HH
 #define CS_RENDERER_GEO_DOT_HH
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# cs/devtools/check_visibility.py
 """
 Ensure every BUILD/BUILD.bazel file contains a canonical package line:
 

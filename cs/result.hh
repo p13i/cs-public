@@ -1,3 +1,4 @@
+// cs/result.hh
 #ifndef CS_RESULT_HH
 #define CS_RESULT_HH
 
@@ -106,12 +107,9 @@ class Result {
 
   friend std::ostream& operator<<(std::ostream& os,
                                   const Result& result) {
-    os << "Result(" << (result.ok() ? "OK" : "ERROR");
-    if (!result.ok()) {
-      os << ", code=" << result.code()
-         << ", message=" << result.message();
-    }
-    os << ")";
+    os << "Result(" << (result.ok() ? "OK" : "ERROR")
+       << ", code=" << result.code()
+       << ", message=" << result.message() << ")";
     if (!result.traces().empty()) {
       os << "\n<traces>\n";
       for (auto trace : result.traces()) {

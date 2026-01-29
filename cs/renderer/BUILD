@@ -1,3 +1,4 @@
+# cs/renderer/BUILD
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -13,6 +14,15 @@ cc_library(
     hdrs = ["pixel.hh"],
     deps = [
         "//cs:log",
+    ],
+)
+
+cc_test(
+    name = "pixel_test",
+    srcs = ["pixel_test.gpt.cc"],
+    deps = [
+        ":pixel",
+        "@googletest//:gtest_main",
     ],
 )
 

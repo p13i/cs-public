@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# cs/q/simplify_path/simplify_path_test_chatgpt.py
 import unittest
 from simplify_path import SimplifyPath
 

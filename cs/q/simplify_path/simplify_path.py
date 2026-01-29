@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# cs/q/simplify_path/simplify_path.py
 def SimplifyPath(s: str) -> str:
     stack = []
     for comp in s.split("/"):

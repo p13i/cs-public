@@ -3,69 +3,124 @@ Usage: make <target> [VAR=val]
 Targets:
   a                        Alias for `app`.
   app                      Run the web app and tee logs to data/app.log.
+  app-bin                  Runs the main app binary, assuming it is at `./bin/main`
+  app-bin-build            Build a binary of the www/main.cc program and place it in `./bin/`
   assert-no-diffs          Fail if repo has unstaged/staged or untracked changes.
   b                        Alias for `build`.
-  build                    Builds the project.
-  build-app                Build the app binary (debug flags enabled).
-  build-index.js           Builds the web bundle (index.js) via Bazel.
-  build-up-in-workflow     Builds a Compose project for the Github Action workflow context.
-  cg                       Alias for `codegen`.
+  base-image               Build cs-app-base:latest and runtime-base:latest images (required for app builds, no pull).
+  build                    Bazel build tuned for speed (override BAZEL_BUILD_FLAGS/BAZEL_BUILD_TARGETS).
+  c                        Alias for coverage.
+  c-serve                  Alias for coverage-serve.
   check_visibility         Ensure Bazel target visibility for public use.
   ci                       Uses all available checks.
   ci-local                 Uses all available checks.
   cite.pub                 cite.pub rule (auto)
-  cite.pub-mkdirs          cite.pub-mkdirs rule (auto)
+  cite.pub-bin             Runs the cite.pub binary, assuming it is at `./bin/cite_pub_main`
+  cite.pub-bin-build       Build a binary of the cite.pub program and place it in `./bin/`
   clean                    Remove all Bazel outputs (expunge).
-  clean-docker             Remove this project's containers/images/volumes and Docker caches.
+  clean-volumes            Remove Docker volumes (destructive).
+  code-viewer-refresh      No-op; cs-public is baked into the code-viewer image.
   codegen                  (Deprecated) Code generation driver.
-  dbuild                   Builds a Compose project.
+  codegen-goldens          Regenerate codegen goldens for cs/net/proto/codegen.
+  coverage                 Run Bazel coverage for C++ tests and export LCOV.
+  coverage-serve           Serve coverage HTML output via make serve.
+  dbuild                   Build core Compose images with BuildKit.
+  dclean                   Remove this project's containers/images/volumes and Docker caches.
+  dclean-slate             Remove ALL Docker containers, images, volumes, and networks (clean slate).
+  dcurl                    Run curl in temp container on compose network. Usage: make dcurl URL="http://database-service:8080/rpc/query/" DATA='{"collection":"http_logs","steps":[]}'
+  dev                      Run dev stack using Bazel-built images (no docker build). Requires local docker daemon for compose up.
+  devcontainer-bash        Open bash shell in devcontainer from macOS Terminal.
+  devcontainer-postCreateCommand Devcontainer provisioning steps.
   dexec                    Runs command inside active container.
   down                     Stops Compose services.
+  down-wiki                download rule (auto)
+  dpurge                   Stop all containers and remove all Docker images (keeps volumes/networks).
   drun                     SERVICE=web COMMAND="make build" make drun
+  dup-dev                  Start dev stack detached (docker compose up) assuming Bazel images are loaded.
   enforce_header_guards    Enforce header guards across the 'cs' tree.
+  expand                   Generate docker-compose.yml and Dockerfile from system.gpt.yml.
+  expand-check             Check which services need rebuilding based on content hashes.
+  expand-test              Run unit tests for expand_system.gpt.py.
+  fn-in-cmt                Ensures that Python, C++, and BUILD files have comments with the filename at the top.
   font-demo                Render a text demo to the console.
-  freeport                 Free TCP port $(PORT) by killing listeners (uses $(SUDO)).
+  fp                       fp rule (auto)
+  freeport                 Free TCP port $(PORT) by killing listeners (uses sudo).
   gha                      gha rule (auto)
+  gha-agents               gha-agents rule (auto)
   gha-bazel                gha-bazel rule (auto)
   gha-devcontainer         gha-devcontainer rule (auto)
   gha-docker               gha-docker rule (auto)
   gpt                      Runs toy GPT implementation.
   help                     Show this help message: Self-documenting Make help [ChatGPT]
   help.txt                 Write a plain-text snapshot of `make help` (strip ANSI + dir chatter).
+  images-build             Build Docker images using Dockerfiles (fast layer caching, no pull).
+  images-load              Alias for images-build (backward compatibility).
+  images-load-dev          Alias for images-build (backward compatibility).
   inline-using             Remove usings from C++ header files.
   l                        Alias for `lint`.
   lint                     Run all linters/formatters.
   lint-add-acls            Dry-run adding ACLs to public files.
+  lint-bash                Enforce 60-col width for Bash lab sources.
   lint-bazel               Lint Bazel files with buildifier.
+  lint-c                   Enforce 60-col width for C lab sources.
   lint-cc                  Format C/C++ sources with clang-format.
+  lint-csharp              Enforce 60-col width for C# lab sources.
+  lint-go                  Enforce 60-col width for Go lab sources.
+  lint-java                Enforce 60-col width for Java lab sources.
+  lint-javascript          Enforce 60-col width for JS lab sources.
+  lint-julia               Enforce 60-col width for Julia lab sources.
   lint-makefile            Lint/organize the top-level Makefile in-place (backup saved).
+  lint-md                  Format Markdown files with Prettier.
   lint-md-html-yaml        Format Markdown/HTML/YAML/JSON with Prettier.
   lint-newfile-examples    Generate example files to validate templates.
   lint-python              Format Python code with Black.
   lint-rust                Format Rust files with Prettier Rust plugin.
-  loop                     Re-run `make app` until it succeeds.
+  lint-typescript          Enforce 60-col width for TS lab sources.
+  load                     Generate sustained HTTP load (default: 10K QPS for 60s). Usage: make load
+  load-find-max-qps        Find maximum QPS with 99.9%+ success rate using binary search.
+  logs                     Follow docker compose logs for core services (Ctrl-C to stop).
+  logs-db                  Follow docker compose logs for database-service (Ctrl-C to stop).
+  logs-save                Check logs for Save Page performance issues (cite-pub).
   mnist                    Run the MNIST demo with the given model.json.
+  mobile-android           mobile-android rule (auto)
+  mobile-ios               mobile-ios rule (auto)
+  mobile-start             mobile-start rule (auto)
   move_cc                  Refactor/move C++ files (SRC -> DST).
+  my-ip                    Print public IP for Namecheap allowlist.
   newfile                  Create a new file from template (requires NEWFILE=path).
   ngrok                    Expose local port 8080 at fixed domain via ngrok.
+  own                      Take ownership of the repo files (requires sudo).
   parse-logs               Parse /app/data/app.log into /app/data/app_logs.
-  parse-logs-job           Run parse-logs every $(INTERVAL)s until interrupted.
-  probe                    Run the HTTP prober utility.
+  parse-logs-bin           Runs the parse_logs binary, assuming it is at `./bin/parse_logs`
+  parse-logs-job           Run parse-logs every 300s until interrupted.
+  prompt                   Send a prompt to https://www.trycopilot.ai/prompt/?prompt=... (GET) and print the reply.
   pub                      Publishes the source code, respecting acl.json files, into ../cs-public
   release                  Updates the .env file with the latest COMMIT hash and commits a release.
   serve                    serve rule (auto)
-  serve-help               Serve help.md rendered at http://localhost:$(DOCS_PORT)/ using a venv-isolated 'grip'
-  serve-site               Serve ./site via a local HTTP server.
   setup                    One-time dev setup (linters, DB dirs, Node).
-  setup-db-dirs            Create local data directories for app state.
-  setup-lint               Install buildifier, clang-format, and Black.
-  setup-ngrok              Install ngrok apt repo and package.
-  singlefile               singlefile rule (auto)
+  setup-git                Sets common git configs for users of this repo.
+  setup-mobile             Installs NPM packages for mobile app.
+  setup-volumes            Create Docker volumes if they don't exist.
   stash                    Commit all changes to branch $(BRANCH), push, then switch back to main.
-  stress                   Loop: clean, build, and test repeatedly until stopped.
+  status                   Watch docker compose status for core services (Ctrl+C to exit).
   t                        Alias for `test`.
   test                     Runs all tests with full output.
-  up                       Starts a Compose project.
+  test-bash                Run the Bash lab test.
+  test-c                   Run the C lab test.
+  test-cpp                 Run the C++ lab test.
+  test-csharp              Run the C# lab test.
+  test-forecast            Run the Pydantic forecast demo tests.
+  test-go                  Run the Go lab test.
+  test-java                Run the Java lab test.
+  test-javascript          Run the JavaScript lab test.
+  test-json                Run JSON parser/serializer DSL tests.
+  test-julia               Run the Julia lab test.
+  test-labs                Run all lab hello-world tests.
+  test-pydantic            Run all Pydantic demo tests.
+  test-python              Run the Python lab test.
+  test-rust                Run the Rust lab test.
+  test-typescript          Run the TypeScript lab test.
+  trees-test               Run tree view tests in cs/q/trees.
+  up                       Bring up the production stack (docker-compose.yml).
   update-env               update-env rule (auto)
   use-usings               Normalize/insert C++ `using` declarations.
-  www                      Serve live logs UI and restart `make up` when upstream changes (Bazel Python).

@@ -1,3 +1,4 @@
+// cs/renderer/scene.hh
 #ifndef CS_RENDERER_SCENE_HH
 #define CS_RENDERER_SCENE_HH
 

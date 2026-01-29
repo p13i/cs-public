@@ -1,3 +1,4 @@
+// cs/ai/mnist.cc
 // Mostly generated with ChatGPT.
 
 #include <cmath>

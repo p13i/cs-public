@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# cs/devtools/publish_code.py
 import sys
 import os
 import json

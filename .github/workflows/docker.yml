@@ -1,9 +1,16 @@
 on:
   schedule:
     - cron: "59 23 * * WED,SAT"
+  pull_request:
+    paths:
+      - ".github/workflows/docker.yml"
+      - "docker-compose.yml"
+      - "Dockerfile"
+      - "Dockerfile.*"
+      - ".dockerignore"
 
 jobs:
-  build-compose:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -15,4 +22,4 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker for up command
-        run: make build-up-in-workflow
+        run: make dbuild

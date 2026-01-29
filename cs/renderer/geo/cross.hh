@@ -1,3 +1,4 @@
+// cs/renderer/geo/cross.hh
 #ifndef CS_RENDERER_GEO_CROSS_HH
 #define CS_RENDERER_GEO_CROSS_HH
 

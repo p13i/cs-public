@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# cs/devtools/update_env.py
 """
 Update a .env file with VERSION and COMMIT from Git.
 

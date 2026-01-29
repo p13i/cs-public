@@ -1,3 +1,4 @@
+# cs/renderer/numbers/BUILD
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -19,14 +20,9 @@ cc_test(
     name = "map_value_test",
     srcs = ["map_value_test.cc"],
     deps = [
+        ":in_range",
         ":map_value",
         "//cs/renderer/precision:floats",
         "@googletest//:gtest_main",
     ],
-)
-
-cc_library(
-    name = "random",
-    srcs = ["random.cc"],
-    hdrs = ["random.hh"],
 )

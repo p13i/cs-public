@@ -6,21 +6,21 @@ C++:
 ```cc
 // api/item.hh
 DECLARE_RPC(GET, GetItem,
-  cs::www::app::protos::GetItemRequest,
-  cs::www::app::protos::GetItemResponse);
+  cs::apps::trycopilotai::protos::GetItemRequest,
+  cs::apps::trycopilotai::protos::GetItemResponse);
 
 // expands to:
 
 class GetItemRPC : public RPC<GetItemRequest, GetItemResponse> {
-   virtual cs::www::app::protos::GetItemResponse GET(const cs::www::app::protos::GetItemRequest request) = 0;
+   virtual cs::apps::trycopilotai::protos::GetItemResponse GET(const cs::apps::trycopilotai::protos::GetItemRequest request) = 0;
 }
 ```
 
 ```cc
 // api/item.cc
 namespace {  // use_usings
-using ::cs::www::app::protos::GetItemRequest;
-using ::cs::www::app::protos::GetItemResponse;
+using ::cs::apps::trycopilotai::protos::GetItemRequest;
+using ::cs::apps::trycopilotai::protos::GetItemResponse;
 }  // namespace
 
 IMPLEMENT_RPC(GET, GetItem, GetItemResponse,

@@ -1,3 +1,4 @@
+// cs/renderer/audio/sinusodal.cc
 #include "cs/renderer/audio/sinusodal.h"
 
 #include <cmath>

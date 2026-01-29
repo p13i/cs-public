@@ -1,3 +1,4 @@
+// cs/renderer/pixel.hh
 #ifndef CS_RENDERER_PIXEL_HH
 #define CS_RENDERER_PIXEL_HH
 

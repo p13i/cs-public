@@ -1,3 +1,4 @@
+// cs/renderer/audio/sinusodal_test.cc
 #include "cs/renderer/audio/sinusodal.h"
 
 #include "cs/renderer/precision/floats.hh"

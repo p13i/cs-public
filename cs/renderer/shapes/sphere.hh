@@ -1,3 +1,4 @@
+// cs/renderer/shapes/sphere.hh
 #ifndef CS_RENDERER_SHAPES_SPHERE_HH
 #define CS_RENDERER_SHAPES_SPHERE_HH
 

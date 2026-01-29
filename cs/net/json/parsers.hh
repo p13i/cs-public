@@ -1,3 +1,4 @@
+// cs/net/json/parsers.hh
 #ifndef CS_NET_JSON_PARSERS_HH
 #define CS_NET_JSON_PARSERS_HH
 
@@ -17,7 +18,7 @@
 
 namespace cs::net::json::parsers {
 
-cs::Result operator>>(std::string str, Object object);
+cs::Result operator>>(std::string str, Object* object);
 
 cs::ResultOr<Object> ParseObject(std::string str,
                                  unsigned int* cursor);

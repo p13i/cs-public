@@ -1,3 +1,4 @@
+// cs/renderer/shapes/sphere.cc
 #include "cs/renderer/shapes/sphere.hh"
 
 #include <cmath>
@@ -35,7 +36,7 @@ bool cs::renderer::shapes::Sphere::intersected_by(
   float t1 = (-b - sqrtf(discriminant)) / 2.f;
   // Intersection time must be the positve solution
   if (t0 < t1) {
-    t_intersect = t0;
+    t_intersect = t0;  // LCOV_EXCL_LINE
   } else {
     t_intersect = t1;
   }

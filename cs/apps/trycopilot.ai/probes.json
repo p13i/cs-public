@@ -1,0 +1,83 @@
+[
+  {
+    "request": {
+      "method": "GET",
+      "url": "/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/health/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/new"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/register/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/login/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/about/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/game/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/render/"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "/favicon.ico"
+    },
+    "expectedResponse": {
+      "status": 200
+    }
+  }
+]

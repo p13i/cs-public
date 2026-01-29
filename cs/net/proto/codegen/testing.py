@@ -1,9 +1,12 @@
+#!/usr/bin/env python3
+# cs/net/proto/codegen/testing.py
 from typing import Union
 import json
 
 from cs.net.proto.codegen.codegen_types import Types, ProtoDB, Proto, Field
 from cs.net.proto.codegen.constants import NEWLINE, VECTOR_NUM_ELEMS
 from cs.net.proto.codegen.helpers import (
+    FullyQualifiedType,
     IsProto,
     cc_namespace,
     extract_T,
@@ -30,6 +33,12 @@ def ValidJsonValue(t: Union[Types], PROTOS: ProtoDB) -> Union[str, int, float]:
         assert isinstance(elem_value, str), f"Expected string, got {type(elem_value)}"
         arr_str = json.dumps([json.loads(elem_value)] * VECTOR_NUM_ELEMS, indent=4)
         return arr_str
+    elif t.startswith(Types.MAP):
+        V = extract_T(t, PROTOS)
+        value_json = ValidJsonValue(V, PROTOS)
+        assert isinstance(value_json, str), f"Expected string, got {type(value_json)}"
+        map_obj = {"key1": json.loads(value_json)}
+        return json.dumps(map_obj, indent=4)
     elif t in PROTOS:
         proto = PROTOS[t]
         obj = {
@@ -57,6 +66,11 @@ def ValidCcTestMatcherValue(t: Types, PROTOS: ProtoDB) -> str:
             proto = PROTOS[elem_type]
             elem_type = proto.namespace + "::" + proto.name
         return f"std::vector<{elem_type}>{{{(',' + NEWLINE).join(elem_vals)}}}"
+    elif t.startswith(Types.MAP):
+        value_type = extract_T(t, PROTOS)
+        value_val = ValidCcTestMatcherValue(value_type, PROTOS)
+        value_type_fqn = FullyQualifiedType(value_type, PROTOS)
+        return f'std::map<std::string, {value_type_fqn}>{{{{"key1", {value_val}}}}}'
     elif IsProto(t, PROTOS):
         proto = PROTOS[t]
         builder = f"{proto.namespace + '::' + cc_namespace(proto.filename, gen=True)}::{proto.name}BuilderImpl()"
@@ -90,6 +104,20 @@ def VectorMatcher(field: Field, proto: Proto, PROTOS: ProtoDB) -> str:
     )
 
 
+def MapMatcher(field: Field, proto: Proto, PROTOS: ProtoDB) -> str:
+    if not field.type.startswith(Types.MAP):
+        raise ValueError(f"MapMatcher called with non-map field type: {field.type}")
+
+    value_type = extract_T(field.type, PROTOS)
+    field_type_fqn = FullyQualifiedType(field.type, PROTOS)
+
+    return (
+        f"auto {RecursiveDescribeT(value_type, PROTOS)}sMapEq(const {field_type_fqn}& expected) {{\n"
+        f"    return ::testing::AllOf(::testing::SizeIs(expected.size()));\n"
+        f"}}\n"
+    )
+
+
 def TestMatcher(field: Field, PROTOS: ProtoDB) -> str:
     if field.type == Types.STRING:
         return "StrEq"
@@ -100,6 +128,9 @@ def TestMatcher(field: Field, PROTOS: ProtoDB) -> str:
     elif field.type.startswith(Types.VECTOR):
         elem_type = extract_T(field.type, PROTOS)
         return f"{RecursiveDescribeT(elem_type, PROTOS)}sVectorEq"
+    elif field.type.startswith(Types.MAP):
+        value_type = extract_T(field.type, PROTOS)
+        return f"{RecursiveDescribeT(value_type, PROTOS)}sMapEq"
     elif IsProto(field.type, PROTOS):
         return f"{field.type}Eq"
     else:

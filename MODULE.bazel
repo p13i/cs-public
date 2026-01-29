@@ -6,20 +6,78 @@
 ###############################################################################
 
 bazel_dep(name = "rules_rust", version = "0.65.0")
-bazel_dep(name = "emsdk", version = "4.0.16")
+bazel_dep(name = "rules_go", version = "0.53.0", repo_name = "io_bazel_rules_go")
+bazel_dep(name = "emsdk", version = "4.0.17")
 bazel_dep(name = "rules_cc", version = "0.2.9")
 bazel_dep(name = "rules_python", version = "1.6.3")
+bazel_dep(name = "rules_dotnet", version = "0.21.5")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.1")
 bazel_dep(name = "curl", version = "8.11.0")
-bazel_dep(name = "abseil-cpp", version = "20250127.0", repo_name = "com_google_absl")
-bazel_dep(name = "apple_support", version = "1.18.1", repo_name = "build_bazel_apple_support")
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
-bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "abseil-cpp", version = "20250127.1", repo_name = "com_google_absl")
+bazel_dep(name = "apple_support", version = "1.23.1", repo_name = "build_bazel_apple_support")
+bazel_dep(name = "gazelle", version = "0.36.0")
+bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "protobuf", version = "29.3", repo_name = "com_google_protobuf")
+bazel_dep(name = "bazel_skylib", version = "1.8.1")
 
 # -- bazel_dep definitions -- #
 
+# -- C++ toolchain (rules_cc); required for rust_binary et al. and cc_* rules -- #
+cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
+use_repo(cc_configure, "local_config_cc", "local_config_cc_toolchains")
+
+register_toolchains("@local_config_cc_toolchains//:all")
+
 # -- use_repo_rule statements -- #
+
+go = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go")
+go.toolchain(
+    go_version = "1.22.7",
+)
+use_repo(go, "go_sdk")
+
+go_repository = use_repo_rule("@gazelle//:deps.bzl", "go_repository")
+
+# Go deps needed by rules_docker utilities.
+go_repository(
+    name = "com_github_google_go_containerregistry",
+    build_directives = ["gazelle:exclude pkg/authn/k8schain"],
+    importpath = "github.com/google/go-containerregistry",
+    sha256 = "c3e28d8820056e7cc870dbb5f18b4f7f7cbd4e1b14633a6317cef895fdb35203",
+    strip_prefix = "go-containerregistry-0.5.1",
+    urls = ["https://github.com/google/go-containerregistry/archive/v0.5.1.tar.gz"],
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    importpath = "github.com/pkg/errors",
+    sum = "h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=",
+    version = "v0.9.1",
+)
+
+go_repository(
+    name = "in_gopkg_yaml_v2",
+    importpath = "gopkg.in/yaml.v2",
+    sum = "h1:obN1ZagJSUGI0Ek/LBmuj4SNLPfIny3KsKFopxRdj10=",
+    version = "v2.2.8",
+)
+
+go_repository(
+    name = "com_github_kylelemons_godebug",
+    importpath = "github.com/kylelemons/godebug",
+    sum = "h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=",
+    version = "v1.1.0",
+)
+
+go_repository(
+    name = "com_github_ghodss_yaml",
+    importpath = "github.com/ghodss/yaml",
+    sum = "h1:wQHKEahhL6wmXdzwWG11gIVCkOv05bNOh+Rxn0yngAk=",
+    version = "v1.0.0",
+)
+
+# go_rules_dependencies is called from go extension by default.
+# -- end rules_go configuration -- #
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
@@ -28,10 +86,26 @@ pip.parse(
     requirements_lock = "//cs/q/multiset:requirements.txt",
 )
 use_repo(pip, "multiset_deps")
+pip.parse(
+    hub_name = "devtools_requirements",
+    python_version = "3.13",
+    requirements_lock = "//cs/devtools:requirements.txt",
+)
+use_repo(pip, "devtools_requirements")
+pip.parse(
+    hub_name = "pydantic_demo_deps",
+    python_version = "3.13",
+    requirements_lock = "//cs/labs/demos/pydantic:requirements.txt",
+)
+use_repo(pip, "pydantic_demo_deps")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.defaults(python_version = "3.13")
-python.toolchain(python_version = "3.13")
+python.toolchain(
+    configure_coverage_tool = True,
+    is_default = True,
+    python_version = "3.13",
+)
 # -- End of pip extensions -- #
 
 # -- repo definitions -- #

@@ -1,3 +1,4 @@
+// cs/renderer/rainbow_test.cc
 #include "cs/renderer/rainbow.h"
 
 #include "gmock/gmock.h"
