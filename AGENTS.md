@@ -130,3 +130,8 @@ question. Follow these rules for that prompt:
   command `make`
 - `loopUntilExitZero("make build", 8)` → run protocol with
   command `make build` and max iterations `8`
+- `useUsings()` → run
+  `.agents/protocols/useUsings.protocol.gpt.md` on all `.cc`
+  files in the repo
+- `useUsings("path/to/file.cc")` → run protocol only on the
+  given file(s)

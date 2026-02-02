@@ -1,23 +1,27 @@
 // cs/apps/trycopilot.ai/api/auth_test.gpt.cc
 #include "cs/apps/trycopilot.ai/api/auth.hh"
 
-#include <chrono>
 #include <string>
-#include <thread>
 
 #include "cs/apps/trycopilot.ai/api/user.hh"
 #include "cs/apps/trycopilot.ai/protos/auth.proto.hh"
+#include "cs/apps/trycopilot.ai/protos/gencode/auth.proto.hh"
+#include "cs/apps/trycopilot.ai/protos/gencode/user.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/user.proto.hh"
+#include "cs/net/proto/db/client.gpt.hh"
+#include "cs/net/proto/db/database_base_url.gpt.hh"
+#include "cs/net/proto/db/in_memory_client.gpt.hh"
 #include "cs/net/proto/db/query_helpers.gpt.hh"
 #include "cs/net/proto/db/query_view.gpt.hh"
+#include "cs/util/di/context.gpt.hh"
 #include "cs/util/uuid.hh"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-namespace {
-using ::cs::apps::trycopilotai::api::CreateUserAPI;
-using ::cs::apps::trycopilotai::api::LoginAPI;
-using ::cs::apps::trycopilotai::api::LogoutAPI;
+namespace {  // use_usings
+using ::cs::apps::trycopilotai::api::CreateUserRPC;
+using ::cs::apps::trycopilotai::api::LoginRPC;
+using ::cs::apps::trycopilotai::api::LogoutRPC;
 using ::cs::apps::trycopilotai::protos::CreateUserRequest;
 using ::cs::apps::trycopilotai::protos::CreateUserResponse;
 using ::cs::apps::trycopilotai::protos::LoginRequest;
@@ -26,18 +30,30 @@ using ::cs::apps::trycopilotai::protos::LogoutRequest;
 using ::cs::apps::trycopilotai::protos::LogoutResponse;
 using ::cs::apps::trycopilotai::protos::Token;
 using ::cs::apps::trycopilotai::protos::User;
+using ::cs::net::proto::db::DatabaseBaseUrl;
 using ::cs::net::proto::db::EQUALS;
+using ::cs::net::proto::db::IDatabaseClient;
+using ::cs::net::proto::db::InMemoryDatabaseClient;
 using ::cs::net::proto::db::QueryView;
+using ::cs::util::di::Context;
+using ::cs::util::di::ContextBuilder;
 using ::cs::util::random::uuid::generate_uuid_v4;
-using ::testing::HasSubstr;
-using ::testing::IsTrue;
+}  // namespace
 
-// Test fixture for auth tests with helper methods
+using AppContext =
+    Context<DatabaseBaseUrl, IDatabaseClient>;
+
+// Test fixture for auth tests with in-memory DB via DI
 class AuthAPITest : public ::testing::Test {
  protected:
-  std::string test_email_ =
-      "test_" + generate_uuid_v4() + "@example.com";
-  std::string test_password_ = "SecureP@ssw0rd!";
+  void SetUp() override {
+    app_ctx_ = ContextBuilder<AppContext>()
+                   .bind<DatabaseBaseUrl>()
+                   .with(std::string(""))
+                   .bind<IDatabaseClient>()
+                   .to<InMemoryDatabaseClient>()
+                   .build();
+  }
 
   CreateUserRequest BuildCreateUserRequest(
       const std::string& email, const std::string& password,
@@ -57,105 +73,91 @@ class AuthAPITest : public ::testing::Test {
     req.password = password;
     return req;
   }
+
+  AppContext app_ctx_;
+  std::string test_email_ =
+      "test_" + generate_uuid_v4() + "@example.com";
+  std::string test_password_ = "SecureP@ssw0rd!";
 };
 
 TEST_F(AuthAPITest, CreateUserSuccess) {
-  CreateUserAPI api;
+  CreateUserRPC api(app_ctx_);
   auto request = BuildCreateUserRequest(
       test_email_, test_password_, test_password_);
 
   auto result = api.Process(request);
-  if (!result.ok()) {
-    GTEST_SKIP() << "Database-service not available: "
-                 << result.message();
-  }
-
-  ASSERT_TRUE(result.ok());
+  ASSERT_TRUE(result.ok()) << result.message();
   EXPECT_EQ(result.value().email, test_email_);
   EXPECT_FALSE(result.value().user_uuid.empty());
 }
 
 TEST_F(AuthAPITest, CreateUserRejectsEmptyEmail) {
-  CreateUserAPI api;
+  CreateUserRPC api(app_ctx_);
   auto request = BuildCreateUserRequest("", test_password_,
                                         test_password_);
 
   auto result = api.Process(request);
 
   ASSERT_FALSE(result.ok());
-  EXPECT_THAT(result.message(),
-              HasSubstr("Email must not be empty"));
+  EXPECT_THAT(
+      result.message(),
+      ::testing::HasSubstr("Email must not be empty"));
 }
 
 TEST_F(AuthAPITest, CreateUserRejectsEmptyPassword) {
-  CreateUserAPI api;
+  CreateUserRPC api(app_ctx_);
   auto request =
       BuildCreateUserRequest(test_email_, "", "");
 
   auto result = api.Process(request);
 
   ASSERT_FALSE(result.ok());
-  EXPECT_THAT(result.message(),
-              HasSubstr("Password must not be empty"));
+  EXPECT_THAT(
+      result.message(),
+      ::testing::HasSubstr("Password must not be empty"));
 }
 
 TEST_F(AuthAPITest, CreateUserRejectsPasswordMismatch) {
-  CreateUserAPI api;
+  CreateUserRPC api(app_ctx_);
   auto request = BuildCreateUserRequest(
       test_email_, test_password_, "DifferentPassword");
 
   auto result = api.Process(request);
 
   ASSERT_FALSE(result.ok());
-  EXPECT_THAT(result.message(),
-              HasSubstr("Passwords do not match"));
+  EXPECT_THAT(
+      result.message(),
+      ::testing::HasSubstr("Passwords do not match"));
 }
 
 TEST_F(AuthAPITest, CreateUserRejectsDuplicateEmail) {
-  CreateUserAPI api;
+  CreateUserRPC api(app_ctx_);
   auto request = BuildCreateUserRequest(
       test_email_, test_password_, test_password_);
 
-  // Create first user
   auto first_result = api.Process(request);
-  if (!first_result.ok()) {
-    GTEST_SKIP() << "Database-service not available: "
-                 << first_result.message();
-  }
-  ASSERT_TRUE(first_result.ok());
+  ASSERT_TRUE(first_result.ok()) << first_result.message();
 
-  // Try to create duplicate
   auto duplicate_result = api.Process(request);
 
   ASSERT_FALSE(duplicate_result.ok());
-  EXPECT_THAT(
-      duplicate_result.message(),
-      HasSubstr("User with this email already exists"));
+  EXPECT_THAT(duplicate_result.message(),
+              ::testing::HasSubstr(
+                  "User with this email already exists"));
 }
 
 TEST_F(AuthAPITest, LoginSuccessAfterRegistration) {
-  // First, create a user
-  CreateUserAPI create_api;
+  CreateUserRPC create_api(app_ctx_);
   auto create_request = BuildCreateUserRequest(
       test_email_, test_password_, test_password_);
-
   auto create_result = create_api.Process(create_request);
-  if (!create_result.ok()) {
-    GTEST_SKIP() << "Database-service not available: "
-                 << create_result.message();
-  }
-  ASSERT_TRUE(create_result.ok());
+  ASSERT_TRUE(create_result.ok())
+      << create_result.message();
 
-  // Give database time to propagate (eventual consistency)
-  std::this_thread::sleep_for(
-      std::chrono::milliseconds(100));
-
-  // Now try to login
-  LoginAPI login_api;
+  LoginRPC login_rpc(app_ctx_);
   auto login_request =
       BuildLoginRequest(test_email_, test_password_);
-
-  auto login_result = login_api.Process(login_request);
+  auto login_result = login_rpc.Process(login_request);
 
   ASSERT_TRUE(login_result.ok())
       << "Login failed: " << login_result.message();
@@ -167,86 +169,52 @@ TEST_F(AuthAPITest, LoginSuccessAfterRegistration) {
 }
 
 TEST_F(AuthAPITest, LoginRejectsWrongPassword) {
-  // First, create a user
-  CreateUserAPI create_api;
+  CreateUserRPC create_api(app_ctx_);
   auto create_request = BuildCreateUserRequest(
       test_email_, test_password_, test_password_);
-
   auto create_result = create_api.Process(create_request);
-  if (!create_result.ok()) {
-    GTEST_SKIP() << "Database-service not available: "
-                 << create_result.message();
-  }
-  ASSERT_TRUE(create_result.ok());
+  ASSERT_TRUE(create_result.ok())
+      << create_result.message();
 
-  // Give database time to propagate
-  std::this_thread::sleep_for(
-      std::chrono::milliseconds(100));
-
-  // Try to login with wrong password
-  LoginAPI login_api;
+  LoginRPC login_rpc(app_ctx_);
   auto login_request =
       BuildLoginRequest(test_email_, "WrongPassword");
-
-  auto login_result = login_api.Process(login_request);
+  auto login_result = login_rpc.Process(login_request);
 
   ASSERT_FALSE(login_result.ok());
   EXPECT_THAT(login_result.message(),
-              HasSubstr("Invalid password"));
+              ::testing::HasSubstr("Invalid password"));
 }
 
 TEST_F(AuthAPITest, LoginRejectsNonexistentUser) {
-  LoginAPI login_api;
+  LoginRPC login_rpc(app_ctx_);
   auto login_request = BuildLoginRequest(
       "nonexistent_" + generate_uuid_v4() + "@example.com",
       test_password_);
 
-  auto login_result = login_api.Process(login_request);
-
-  // Skip if database-service not available
-  if (!login_result.ok()) {
-    if (login_result.message().find("hostname") !=
-            std::string::npos ||
-        login_result.message().find("connect") !=
-            std::string::npos ||
-        login_result.message().find("resolve") !=
-            std::string::npos) {
-      GTEST_SKIP() << "Database-service not available: "
-                   << login_result.message();
-    }
-  }
+  auto login_result = login_rpc.Process(login_request);
 
   ASSERT_FALSE(login_result.ok());
   EXPECT_THAT(login_result.message(),
-              HasSubstr("No values found"));
+              ::testing::HasSubstr("No values found"));
 }
 
 TEST_F(AuthAPITest, LoginReusesExistingActiveToken) {
-  // Create user
-  CreateUserAPI create_api;
+  CreateUserRPC create_api(app_ctx_);
   auto create_request = BuildCreateUserRequest(
       test_email_, test_password_, test_password_);
-
   auto create_result = create_api.Process(create_request);
-  if (!create_result.ok()) {
-    GTEST_SKIP() << "Database-service not available";
-  }
-  ASSERT_TRUE(create_result.ok());
+  ASSERT_TRUE(create_result.ok())
+      << create_result.message();
 
-  // Give database time to propagate
-  std::this_thread::sleep_for(
-      std::chrono::milliseconds(100));
-
-  // First login
-  LoginAPI login_api;
+  LoginRPC login_rpc(app_ctx_);
   auto login_request =
       BuildLoginRequest(test_email_, test_password_);
-  auto first_login = login_api.Process(login_request);
+  auto first_login = login_rpc.Process(login_request);
   ASSERT_TRUE(first_login.ok()) << first_login.message();
   std::string first_token = first_login.value().token.uuid;
 
-  // Second login should reuse the same active token
-  auto second_login = login_api.Process(login_request);
+  auto second_login = login_rpc.Process(login_request);
   ASSERT_TRUE(second_login.ok()) << second_login.message();
   std::string second_token =
       second_login.value().token.uuid;
@@ -256,57 +224,47 @@ TEST_F(AuthAPITest, LoginReusesExistingActiveToken) {
 }
 
 TEST_F(AuthAPITest, LogoutDeactivatesToken) {
-  // Create user and login
-  CreateUserAPI create_api;
+  CreateUserRPC create_api(app_ctx_);
   auto create_request = BuildCreateUserRequest(
       test_email_, test_password_, test_password_);
   auto create_result = create_api.Process(create_request);
-  if (!create_result.ok()) {
-    GTEST_SKIP() << "Database-service not available";
-  }
+  ASSERT_TRUE(create_result.ok())
+      << create_result.message();
 
-  std::this_thread::sleep_for(
-      std::chrono::milliseconds(100));
-
-  LoginAPI login_api;
+  LoginRPC login_rpc(app_ctx_);
   auto login_request =
       BuildLoginRequest(test_email_, test_password_);
-  auto login_result = login_api.Process(login_request);
-  ASSERT_TRUE(login_result.ok());
+  auto login_result = login_rpc.Process(login_request);
+  ASSERT_TRUE(login_result.ok()) << login_result.message();
 
-  // Logout
-  LogoutAPI logout_api;
+  LogoutRPC logout_rpc(app_ctx_);
   LogoutRequest logout_request;
   logout_request.token_uuid =
       login_result.value().token.uuid;
-
-  auto logout_result = logout_api.Process(logout_request);
+  auto logout_result = logout_rpc.Process(logout_request);
   ASSERT_TRUE(logout_result.ok());
   EXPECT_TRUE(logout_result.value().logged_out);
 
-  // Verify token is inactive
-  QueryView<Token> tokens_query("tokens");
+  auto db = app_ctx_.Get<IDatabaseClient>();
   auto token_result =
-      tokens_query
+      QueryView<Token>("tokens", db)
           .where(EQUALS(&Token::uuid,
                         login_result.value().token.uuid))
           .first();
-  if (token_result.ok()) {
-    EXPECT_FALSE(token_result.value().active)
-        << "Token should be inactive after logout";
-  }
+  ASSERT_TRUE(token_result.ok());
+  EXPECT_FALSE(token_result.value().active)
+      << "Token should be inactive after logout";
 }
 
 TEST_F(AuthAPITest, LogoutRejectsEmptyTokenUuid) {
-  LogoutAPI logout_api;
+  LogoutRPC logout_rpc(app_ctx_);
   LogoutRequest logout_request;
   logout_request.token_uuid = "";
 
-  auto result = logout_api.Process(logout_request);
+  auto result = logout_rpc.Process(logout_request);
 
   ASSERT_FALSE(result.ok());
   EXPECT_THAT(result.message(),
-              HasSubstr("token_uuid` must not be empty"));
+              ::testing::HasSubstr(
+                  "token_uuid` must not be empty"));
 }
-
-}  // namespace

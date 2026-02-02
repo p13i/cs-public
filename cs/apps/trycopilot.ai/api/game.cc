@@ -7,6 +7,7 @@
 
 namespace {  // use_usings
 using ::cs::InvalidArgument;
+using ::cs::apps::trycopilotai::SceneAnimator;
 using ::cs::apps::trycopilotai::protos::GetAnimationRequest;
 using ::cs::apps::trycopilotai::protos::
     GetAnimationResponse;
@@ -14,7 +15,7 @@ using ::cs::apps::trycopilotai::protos::
 
 namespace cs::apps::trycopilotai::api {
 
-IMPLEMENT_API(GetAnimationAPI, GetAnimationRequest,
+IMPLEMENT_RPC(GetAnimationRPC, GetAnimationRequest,
               GetAnimationResponse) {
   if (request.width < 1 || request.width > 1024) {
     return TRACE(
@@ -40,7 +41,7 @@ IMPLEMENT_API(GetAnimationAPI, GetAnimationRequest,
   LOG(DEBUG) << "Request is valid: "
              << request.Serialize(/*indent=*/2) << ENDL;
 
-  cs::apps::trycopilotai::SceneAnimator animator(
+  SceneAnimator animator(
       request.num_frames,
       std::make_tuple(request.width, request.height));
   std::vector<Film> frames = animator.render_all_frames(

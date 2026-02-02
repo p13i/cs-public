@@ -4,6 +4,42 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+    name = "client",
+    srcs = ["client.gpt.cc"],
+    hdrs = ["client.gpt.hh"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//cs:result",
+        "//cs/apps/database-service:rpc.gpt",
+        "//cs/net/proto/db/protos:database.proto",
+        "//cs/net/rpc",
+    ],
+)
+
+cc_library(
+    name = "database_base_url",
+    hdrs = ["database_base_url.gpt.hh"],
+    visibility = ["//visibility:public"],
+    deps = ["//cs/util/di:constant_dep"],
+)
+
+cc_library(
+    name = "in_memory_client",
+    srcs = ["in_memory_client.gpt.cc"],
+    hdrs = ["in_memory_client.gpt.hh"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":client",
+        "//cs:log",
+        "//cs:result",
+        "//cs/net/json:object",
+        "//cs/net/json:parsers",
+        "//cs/net/proto/db/protos:database.proto",
+        "//cs/util:uuid",
+    ],
+)
+
+cc_library(
     name = "field_path_builder",
     hdrs = ["field_path_builder.gpt.hh"],
     deps = [],
@@ -14,6 +50,7 @@ cc_library(
     hdrs = ["query_helpers.gpt.hh"],
     visibility = ["//visibility:public"],
     deps = [
+        ":client",
         ":field_path_builder",
         "//cs/net/proto/db/protos:database.proto",
     ],
@@ -24,14 +61,12 @@ cc_library(
     hdrs = ["query_view.gpt.hh"],
     visibility = ["//visibility:public"],
     deps = [
+        ":client",
         ":field_path_builder",
         ":query_helpers",
         "//cs:log",
         "//cs:result",
-        "//cs/apps/database-service:rpc.gpt",
-        "//cs/net/proto:api",
         "//cs/net/proto/db/protos:database.proto",
-        "//cs/net/rpc",
     ],
 )
 

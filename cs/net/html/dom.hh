@@ -50,8 +50,12 @@ inline str meta(str name, str content) {
 }
 
 DOM_MULTICHILD(body);
+DOM_MULTICHILD(button);
 DOM_MULTICHILD(div);
+DOM_MULTICHILD(li);
 DOM_MULTICHILD(nav);
+DOM_MULTICHILD(ol);
+DOM_MULTICHILD(ul);
 DOM_MULTICHILD(form);
 DOM_MULTICHILD(p);
 DOM_ONESTRCHILD(strong);
@@ -93,6 +97,17 @@ inline std::string input(
   return std::string("<input") + BuildAttrs(attrs) + "/>";
 }
 
+inline std::string link(
+    std::map<std::string, std::string> attrs) {
+  return std::string("<link") + BuildAttrs(attrs) + "/>";
+}
+
+inline std::string script(
+    std::map<std::string, std::string> attrs) {
+  return std::string("<script") + BuildAttrs(attrs) +
+         "></script>";
+}
+
 // Convenience helper for checkbox inputs to ensure presence
 // of type.
 inline std::string checkbox(
@@ -122,10 +137,15 @@ inline std::string checkbox(
   }
 
 // Generate overloaded functions with attributes support
-DOM_MULTICHILD_ATTRS(div);
 DOM_MULTICHILD_ATTRS(body);
-DOM_MULTICHILD_ATTRS(span);
+DOM_MULTICHILD_ATTRS(button);
+DOM_MULTICHILD_ATTRS(div);
+DOM_MULTICHILD_ATTRS(label);
+DOM_MULTICHILD_ATTRS(li);
 DOM_MULTICHILD_ATTRS(nav);
+DOM_MULTICHILD_ATTRS(ol);
+DOM_MULTICHILD_ATTRS(span);
+DOM_MULTICHILD_ATTRS(ul);
 DOM_ONESTRCHILD_ATTRS(h1);
 DOM_ONESTRCHILD_ATTRS(strong);
 DOM_ONESTRCHILD_ATTRS(pre);

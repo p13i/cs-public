@@ -4,25 +4,22 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <vector>
 
-#include "cs/apps/database-service/rpc.gpt.hh"
 #include "cs/log.hh"
 #include "cs/net/json/object.hh"
 #include "cs/net/json/parsers.hh"
+#include "cs/net/proto/db/client.gpt.hh"
 #include "cs/net/proto/db/field_path_builder.gpt.hh"
 #include "cs/net/proto/db/protos/database.proto.hh"
 #include "cs/net/proto/db/query_helpers.gpt.hh"
-#include "cs/net/rpc/client.hh"
 #include "cs/result.hh"
 
 namespace cs::net::proto::db {
-
-template <typename T, typename FieldType>
-std::string GetFieldPath(FieldType T::*member_ptr);
 
 template <typename T>
 class QueryView {
@@ -32,12 +29,15 @@ class QueryView {
   // Default constructor for ResultOr compatibility
   QueryView() : collection_(""), materialized_(false) {}
 
-  // Constructor for remote query (takes collection name)
-  // No errors at construction time - errors occur during
-  // materialize() This is the primary constructor for the
-  // new database service pattern
-  explicit QueryView(const std::string& collection)
-      : collection_(collection), materialized_(false) {}
+  // Constructor for remote query (takes collection name
+  // and non-null client). Client must not be null for
+  // remote queries.
+  explicit QueryView(
+      const std::string& collection,
+      std::shared_ptr<IDatabaseClient> client)
+      : collection_(collection),
+        materialized_(false),
+        client_(std::move(client)) {}
 
   // Constructor for in-memory query (takes pre-loaded
   // values) Useful for testing or when you already have
@@ -98,10 +98,11 @@ class QueryView {
     limit(1);
     OK_OR_RET(this->materialize());
     if (materialized_values_.empty()) {
-      return TRACE(cs::Error("No values found"));
+      return TRACE(cs::NotFoundError("No values found"));
     }
     if (materialized_values_.size() > 1) {
-      return TRACE(cs::Error("More than one value found"));
+      return TRACE(
+          cs::InvalidArgument("More than one value found"));
     }
     return materialized_values_[0];
   }
@@ -241,19 +242,11 @@ class QueryView {
       return cs::Ok();
     }
 
-    // Remote query - call database service
     cs::net::proto::database::QueryRequest request;
     request.collection = collection_;
     request.steps = proto_steps_;
 
-    // Note: Requires API base class to have
-    // RequestType/ResponseType typedefs. See Critical
-    // Self-Analysis Issue #11 for required fix to api.hh.
-    cs::net::rpc::RPCClient<
-        cs::apps::database_service::api::QueryAPI>
-        client("http://database-service:8080");
-    SET_OR_RET(auto response,
-               client.Call("/rpc/query/", request));
+    SET_OR_RET(auto response, client_->Query(request));
 
     materialized_values_.clear();
     for (const auto& record : response.records) {
@@ -346,6 +339,7 @@ class QueryView {
       proto_steps_;
   std::string collection_;
   bool materialized_ = false;
+  std::shared_ptr<IDatabaseClient> client_;
   Ts materialized_values_;
 };
 

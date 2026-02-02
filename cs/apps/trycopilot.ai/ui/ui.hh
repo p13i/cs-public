@@ -7,10 +7,17 @@
 #include "cs/apps/trycopilot.ai/protos/user.proto.hh"
 #include "cs/net/http/request.hh"
 #include "cs/net/http/response.hh"
+#include "cs/net/proto/db/client.gpt.hh"
+#include "cs/net/proto/db/database_base_url.gpt.hh"
+#include "cs/util/di/context.gpt.hh"
+
+using UIContext = ::cs::util::di::Context<
+    ::cs::net::proto::db::DatabaseBaseUrl,
+    ::cs::net::proto::db::IDatabaseClient>;
 
 #define DECLARE_HANDLER(_name)   \
   cs::net::http::Response _name( \
-      cs::net::http::Request request);
+      cs::net::http::Request request, UIContext& ctx);
 
 namespace cs::apps::trycopilotai::ui {
 
@@ -33,13 +40,14 @@ DECLARE_HANDLER(GetCodePage);
 DECLARE_HANDLER(GetNewWebsite);
 DECLARE_HANDLER(GetAboutPage);
 
-std::string extractAuthToken(const std::string &cookie);
+std::string extractAuthToken(const std::string& cookie);
 
 ResultOr<std::string> GetToken(
-    cs::net::http::Request request);
+    const cs::net::http::Request& request);
 
 ResultOr<cs::apps::trycopilotai::protos::User>
-GetAuthenticatedUser(cs::net::http::Request request);
+GetAuthenticatedUser(cs::net::http::Request request,
+                     UIContext& ctx);
 }  // namespace cs::apps::trycopilotai::ui
 
 #endif  // CS_APPS_TRYCOPILOT_AI_UI_UI_HH

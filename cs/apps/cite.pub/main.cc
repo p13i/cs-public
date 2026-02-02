@@ -7,16 +7,20 @@
 #include "cs/apps/cite.pub/protos/lookup_mapping.proto.hh"
 #include "cs/apps/cite.pub/protos/save_resource_form.gpt.proto.hh"
 #include "cs/apps/common/health_endpoint.hh"
+#include "cs/net/html/bootstrap/dsl.hh"
 #include "cs/net/html/dom.hh"
 #include "cs/net/http/client.hh"
 #include "cs/net/http/request.hh"
 #include "cs/net/http/response.hh"
 #include "cs/net/http/web_app.hh"
-#include "cs/net/proto/api.hh"
+#include "cs/net/proto/db/client.gpt.hh"
+#include "cs/net/proto/db/database_base_url.gpt.hh"
 #include "cs/net/proto/db/db.hh"
 #include "cs/net/proto/form/proto_form.gpt.hh"
+#include "cs/net/rpc/rpc.hh"
 #include "cs/parsers/arg_parser.gpt.hh"
 #include "cs/result.hh"
+#include "cs/util/di/context.gpt.hh"
 #include "cs/util/time.hh"
 #include "cs/util/uuid.hh"
 
@@ -38,12 +42,17 @@ using ::cs::net::http::kContentTypeTextPlain;
 using ::cs::net::http::Request;
 using ::cs::net::http::Response;
 using ::cs::net::http::WebApp;
-using ::cs::net::proto::api::ExtractProtoFromRequest;
+using ::cs::net::proto::db::DatabaseBaseUrl;
+using ::cs::net::proto::db::DatabaseClientImpl;
 using ::cs::net::proto::db::EQUALS;
-using ::cs::net::proto::db::Insert;
+using ::cs::net::proto::db::IDatabaseClient;
 using ::cs::net::proto::db::QueryView;
+using ::cs::net::proto::db::Upsert;
 using ::cs::net::proto::form::GenerateProtoForm;
+using ::cs::net::rpc::ExtractProtoFromRequest;
 using ::cs::parsers::ParseArgs;
+using ::cs::util::di::Context;
+using ::cs::util::di::ContextBuilder;
 using ::cs::util::random::uuid::generate_uuid_v4;
 using ::cs::util::time::NowAsISO8601TimeUTC;
 }  // namespace
@@ -53,22 +62,40 @@ ResultOr<std::string> MakeSingleFileHTML(std::string url) {
   return Fetch(url, "GET");
 }
 
-Response GetIndexPage(Request request) {
+using AppContext = ::cs::util::di::Context<
+    ::cs::net::proto::db::DatabaseBaseUrl,
+    ::cs::net::proto::db::IDatabaseClient>;
+
+Response GetIndexPage(Request request, AppContext&) {
   using namespace cs::net::html::dom;
+  namespace bs = ::cs::net::html::bootstrap;
+
+  bs::NavbarConfig navbar_config;
+  navbar_config.brand_href = "/";
+  navbar_config.brand_label = "cite.pub";
+  navbar_config.expand_breakpoint = "lg";
+  navbar_config.collapse_id = "navbarMain";
+  navbar_config.active_path = "/";
+
   return HtmlResponse(html(
       head(meta({{"charset", "utf-8"}}),
            meta({{"name", "viewport"},
                  {"content",
                   "width=device-width, initial-scale=1"}}),
-           title("cite.pub - Save Web Pages")),
-      body(div(
-          h1("cite.pub"),
-          p("Save any web page as a single HTML file"),
-          GenerateProtoForm<SaveResourceForm>("/save/")))));
+           title("cite.pub - Save Web Pages"),
+           bs::StylesheetLink()),
+      body(
+          bs::Navbar(navbar_config),
+          bs::Container(
+              h1("cite.pub") +
+              p("Save any web page as a single HTML file") +
+              GenerateProtoForm<SaveResourceForm>(
+                  "/save/")),
+          bs::ScriptTag())));
 }
 
 // POST /save/ - Save a web resource (form submission).
-Response SaveResource(Request request) {
+Response SaveResource(Request request, AppContext& ctx) {
   SET_OR_RET(
       SaveResourceForm form,
       ExtractProtoFromRequest<SaveResourceForm>(request));
@@ -89,8 +116,8 @@ Response SaveResource(Request request) {
   mapping.created_at = NowAsISO8601TimeUTC();
   mapping.content = html;
 
-  // Save to database service
-  OK_OR_RET(Insert("lookups", mapping));
+  OK_OR_RET(Upsert("lookups", mapping,
+                   *ctx.Get<IDatabaseClient>()));
 
   // Return short code
   return Response(HTTP_200_OK, kContentTypeTextPlain,
@@ -98,12 +125,12 @@ Response SaveResource(Request request) {
 }
 
 // GET /{shortcode} - Serve cached page for short code
-Response GetCachedPage(Request request) {
+Response GetCachedPage(Request request, AppContext& ctx) {
   GetCachedPageRequest get_cache_request;
   get_cache_request.short_code = request.path().substr(1);
 
-  // Query database service for lookup mapping
-  QueryView<LookupMapping> query("lookups");
+  auto db = ctx.Get<IDatabaseClient>();
+  QueryView<LookupMapping> query("lookups", db);
   SET_OR_RET(
       LookupMapping mapping,
       query
@@ -127,8 +154,18 @@ Result RunMyWebApp(std::vector<std::string> argv) {
     config.port = 8080;
   }
 
-  WebApp app;
+  auto app_ctx =
+      ContextBuilder<AppContext>()
+          .bind<DatabaseBaseUrl>()
+          .with(std::string("http://database-service:8080"))
+          .bind<IDatabaseClient>()
+          .from([](AppContext& ctx) {
+            return std::make_shared<DatabaseClientImpl>(
+                ctx.Get<DatabaseBaseUrl>()->value());
+          })
+          .build();
 
+  WebApp<AppContext> app(app_ctx);
   ADD_ROUTE(app, "GET", "/", GetIndexPage);
   ADD_ROUTE(app, "POST", "/save/", SaveResource);
   ADD_ROUTE(app, "GET", "/health/", GetHealth);

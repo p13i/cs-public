@@ -30,8 +30,8 @@ proto_codegen_cc_library(
 )
 
 proto_codegen_cc_library(
-    name = "context.proto",
-    decl = "context.proto.hh",
+    name = "web_app_meta.proto",
+    decl = "web_app_meta.proto.hh",
 )
 
 proto_codegen_cc_library(

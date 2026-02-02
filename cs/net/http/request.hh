@@ -14,7 +14,6 @@
 #include "cs/result.hh"
 
 namespace cs::net::http {
-class WebApp;  // Forward declaration.
 
 class Request {
  public:
@@ -24,8 +23,7 @@ class Request {
         _query_params({}),
         _headers({}),
         _body(""),
-        _str(""),
-        _app(nullptr) {}
+        _str("") {}
 
   std::string summary() {
     std::stringstream ss;
@@ -90,19 +88,12 @@ class Request {
     return _query_params;
   }
 
-  void set_app(std::shared_ptr<WebApp> app) { _app = app; }
-
-  std::shared_ptr<WebApp> app() { return _app; }
-
-  std::shared_ptr<const WebApp> app() const { return _app; }
-
   std::string _method;
   std::string _path;
   std::map<std::string, std::string> _query_params;
   std::map<std::string, std::string> _headers;
   std::string _body;
   std::string _str;
-  std::shared_ptr<WebApp> _app;
 
   std::string UrlDecode(const std::string& str);
 

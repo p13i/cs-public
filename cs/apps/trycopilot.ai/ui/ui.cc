@@ -22,11 +22,13 @@
 #include "cs/apps/trycopilot.ai/api/user.hh"
 #include "cs/apps/trycopilot.ai/protos/acl.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/auth.proto.hh"
-#include "cs/apps/trycopilot.ai/protos/context.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/game.proto.hh"
+#include "cs/apps/trycopilot.ai/protos/gencode/auth.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/gencode/game.proto.hh"
+#include "cs/apps/trycopilot.ai/protos/gencode/user.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/ui.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/user.proto.hh"
+#include "cs/apps/trycopilot.ai/protos/web_app_meta.proto.hh"
 #include "cs/apps/trycopilot.ai/scene_animator.hh"
 #include "cs/log.hh"
 #include "cs/net/html/dom.hh"
@@ -35,64 +37,95 @@
 #include "cs/net/http/response.hh"
 #include "cs/net/http/web_app.hh"
 #include "cs/net/json/serialize.hh"
-#include "cs/net/proto/api.hh"
+#include "cs/net/proto/db/client.gpt.hh"
 #include "cs/net/proto/db/query_helpers.gpt.hh"
 #include "cs/net/proto/db/query_view.gpt.hh"
 #include "cs/net/proto/form/proto_form.gpt.hh"
+#include "cs/net/rpc/rpc.hh"
 #include "cs/parsers/parsers.hh"
 #include "cs/result.hh"
 #include "cs/util/context.hh"
+#include "cs/util/di/context.gpt.hh"
+#include "cs/util/string.hh"
 #include "cs/util/time.hh"
 #include "cs/util/uuid.hh"
 
 namespace {  // use_usings
 using ::cs::NotFoundError;
+using ::cs::Ok;
 using ::cs::ResultOr;
+using ::cs::apps::common::GetDomainForService;
+using ::cs::apps::common::website::BuildWebsiteConfig;
 using ::cs::apps::common::website::NavItemSpec;
 using ::cs::apps::common::website::PageOptions;
 using ::cs::apps::common::website::WebsiteConfig;
 using ::cs::apps::common::website::WebsiteUser;
 using ::cs::apps::common::website::WebsiteUserInfo;
 using ::cs::apps::trycopilotai::SceneAnimator;
+using ::cs::apps::trycopilotai::api::CreateUserRPC;
+using ::cs::apps::trycopilotai::api::ListAppLogsRPC;
+using ::cs::apps::trycopilotai::api::ListLogsRPC;
+using ::cs::apps::trycopilotai::api::LoginRPC;
+using ::cs::apps::trycopilotai::api::LogoutRPC;
+using ::cs::apps::trycopilotai::protos::CreateUserRequest;
+using ::cs::apps::trycopilotai::protos::GetAnimationRequest;
+using ::cs::apps::trycopilotai::protos::
+    GetAnimationResponse;
+using ::cs::apps::trycopilotai::protos::ListAppLogsResponse;
+using ::cs::apps::trycopilotai::protos::ListLogsResponse;
 using ::cs::apps::trycopilotai::protos::LoginRequest;
 using ::cs::apps::trycopilotai::protos::LoginResponse;
 using ::cs::apps::trycopilotai::protos::LogoutRequest;
 using ::cs::apps::trycopilotai::protos::LogoutResponse;
 using ::cs::apps::trycopilotai::protos::Token;
 using ::cs::apps::trycopilotai::protos::User;
+using ::cs::apps::trycopilotai::protos::WebAppMeta;
+using ::cs::apps::trycopilotai::ui::GetAuthenticatedUser;
+using ::cs::apps::trycopilotai::ui::GetToken;
 using ::cs::net::http::HtmlResponse;
 using ::cs::net::http::HTTP_200_OK;
+using ::cs::net::http::HTTP_302_FOUND;
+using ::cs::net::http::HTTP_403_PERMISSION_DENIED;
+using ::cs::net::http::HTTP_404_NOT_FOUND;
+using ::cs::net::http::HTTP_500_INTERNAL_SERVER_ERROR;
 using ::cs::net::http::kContentTypeTextHtml;
 using ::cs::net::http::kContentTypeTextPlain;
 using ::cs::net::http::Request;
 using ::cs::net::http::Response;
+using ::cs::net::proto::db::DatabaseBaseUrl;
 using ::cs::net::proto::db::EQUALS;
-using ::cs::util::Context;
+using ::cs::net::proto::db::IDatabaseClient;
+using ::cs::net::proto::db::QueryView;
+using ::cs::net::proto::db::Upsert;
+using ::cs::net::proto::form::GenerateProtoForm;
+using ::cs::net::rpc::ExtractProtoFromRequest;
+using ::cs::parsers::ParseUnsignedInt;
+using ::cs::util::string::ToLowercase;
 }  // namespace
 
 namespace cs::apps::trycopilotai::ui {
 
-#define ANONYMOUS_USERS_ONLY(request)               \
-  if (!Result::IsNotFound(                          \
-          cs::apps::trycopilotai::ui::              \
-              GetAuthenticatedUser(request))) {     \
-    return Response(                                \
-        cs::net::http::HTTP_403_PERMISSION_DENIED); \
+using ::cs::util::Context;
+using AppContext = ::cs::util::di::Context<
+    ::cs::net::proto::db::DatabaseBaseUrl,
+    ::cs::net::proto::db::IDatabaseClient>;
+
+#define ANONYMOUS_USERS_ONLY(request, ctx)           \
+  if (!Result::IsNotFound(                           \
+          cs::apps::trycopilotai::ui::               \
+              GetAuthenticatedUser(request, ctx))) { \
+    return Response(HTTP_403_PERMISSION_DENIED);     \
   }
 
-#define LOGGED_IN_USERS_ONLY(request)                    \
-  if (!cs::apps::trycopilotai::ui::GetAuthenticatedUser( \
-           request)                                      \
-           .ok()) {                                      \
-    return Response(                                     \
-        cs::net::http::HTTP_403_PERMISSION_DENIED);      \
+#define LOGGED_IN_USERS_ONLY(request, ctx)        \
+  if (!GetAuthenticatedUser(request, ctx).ok()) { \
+    return Response(HTTP_403_PERMISSION_DENIED);  \
   }
 
-#define ADMIN_USERS_ONLY(lhs, request)                    \
-  lhs = cs::apps::trycopilotai::ui::GetAuthenticatedUser( \
-      request);                                           \
-  if (!user.ok() || !user.value().admin) {                \
-    return Response(cs::net::http::HTTP_404_NOT_FOUND);   \
+#define ADMIN_USERS_ONLY(lhs, request, ctx) \
+  lhs = GetAuthenticatedUser(request, ctx); \
+  if (!user.ok() || !user.value().admin) {  \
+    return Response(HTTP_404_NOT_FOUND);    \
   }
 
 static std::string AuthCookieAttributes() {
@@ -118,7 +151,7 @@ static std::string AuthCookieAttributes() {
 
 // Source:
 // https://chatgpt.com/share/67df4a37-ccf4-800e-bb0b-630599cd7766
-std::string extractAuthToken(const std::string &cookie) {
+std::string extractAuthToken(const std::string& cookie) {
   std::string key = "auth_token=";
   size_t start = cookie.find(key);
   if (start == std::string::npos) {
@@ -131,12 +164,17 @@ std::string extractAuthToken(const std::string &cookie) {
              : cookie.substr(start, end - start);
 }
 
-ResultOr<std::string> GetToken(
-    cs::net::http::Request request) {
-  if (request.headers().count("Cookie") == 0) {
+ResultOr<std::string> GetToken(const Request& request) {
+  std::string cookie;
+  for (const auto& [name, value] : request._headers) {
+    if (ToLowercase(name) == "cookie") {
+      cookie = value;
+      break;
+    }
+  }
+  if (cookie.empty()) {
     return TRACE(NotFoundError("No cookie found."));
   }
-  std::string cookie = request.headers()["Cookie"];
   std::string token_uuid = extractAuthToken(cookie);
   if (token_uuid.empty()) {
     return TRACE(
@@ -145,47 +183,40 @@ ResultOr<std::string> GetToken(
   return token_uuid;
 }
 
-ResultOr<User> GetAuthenticatedUser(Request request) {
-  SET_OR_RET(std::string token_uuid,
-             cs::apps::trycopilotai::ui::GetToken(request));
+ResultOr<User> GetAuthenticatedUser(Request request,
+                                    AppContext& ctx) {
+  SET_OR_RET(std::string token_uuid, GetToken(request));
   LOG(INFO) << "[DEBUG] GetAuthenticatedUser - token_uuid="
             << token_uuid << ENDL;
 
-  cs::net::proto::db::QueryView<Token> tokens_query(
-      "tokens");
+  auto db = ctx.Get<IDatabaseClient>();
+  QueryView<Token> tokens_query("tokens", db);
 
-  // Use string field path since codegen doesn't create
-  // GetFieldPath for Token
-  auto query_result =
-      tokens_query.where(EQUALS("uuid", token_uuid))
-          .first();
-  if (!query_result.ok()) {
-    LOG(ERROR) << "[DEBUG] Token query FAILED: "
-               << query_result.message()
-               << " | Looking for uuid=" << token_uuid
-               << ENDL;
-    return query_result;
-  }
-
-  auto token = query_result.value();
+  SET_OR_RET(
+      auto token,
+      tokens_query.where(EQUALS(&Token::uuid, token_uuid))
+          .first());
   LOG(INFO) << "[DEBUG] Token found - user_uuid="
             << token.user_uuid << " active=" << token.active
             << ENDL;
 
-  cs::net::proto::db::QueryView<
-      cs::apps::trycopilotai::protos::User>
-      users_query("users");
-  SET_OR_RET(
-      auto user,
-      users_query.where(EQUALS("uuid", token.user_uuid))
-          .first());
+  if (!token.active) {
+    return TRACE(
+        NotFoundError("Token inactive or logged out."));
+  }
+
+  QueryView<User> users_query("users", db);
+  SET_OR_RET(auto user, users_query
+                            .where(EQUALS(&User::uuid,
+                                          token.user_uuid))
+                            .first());
 
   return user;
 }
 
 ResultOr<std::string> MakeWebsite(
     ResultOr<User> user, std::string active_page_path,
-    std::string content, const Request &request) {
+    std::string content, const Request& request) {
   const bool is_logged_in = user.ok();
   const bool is_admin = is_logged_in && user.value().admin;
 
@@ -211,8 +242,7 @@ ResultOr<std::string> MakeWebsite(
   {
     NavItemSpec item{};
     SET_OR_RET(std::string code_domain,
-               cs::apps::common::GetDomainForService(
-                   "code-viewer", request));
+               GetDomainForService("code-viewer", request));
     item.href = "https://" + code_domain + "/";
     item.label = "Code (cs)";
     item.requires_auth = false;
@@ -306,71 +336,32 @@ ResultOr<std::string> MakeWebsite(
   }
   opts.active_path = std::move(active_page_path);
   opts.content_html = std::move(content);
-  opts.title = "COPILOT AI";
+  opts.title = "trycopilot.ai";
 
-  WebsiteConfig config =
-      cs::apps::common::website::BuildWebsiteConfig(opts);
+  WebsiteConfig config = BuildWebsiteConfig(opts);
   return cs::apps::common::website::MakeWebsite(config);
 }
 
 static Response MakeWebsiteErrorResponse(
-    const cs::ResultOr<std::string> &html_or) {
-  return Response(
-      cs::net::http::HTTP_500_INTERNAL_SERVER_ERROR,
-      kContentTypeTextPlain, html_or.message());
+    const ResultOr<std::string>& html_or) {
+  return Response(HTTP_500_INTERNAL_SERVER_ERROR,
+                  kContentTypeTextPlain, html_or.message());
 }
 
-Response GetIndexPage(Request request) {
-  using namespace cs::net::html::dom;
-
-  std::stringstream content;
-  content << div(
-      {{"style",
-        "position: fixed; top: 0; left: 0; "
-        "min-height: 100vh; width: 100%; "
-        "background: #FFFFFF; overflow: hidden; "
-        "z-index: -1; pointer-events: none;"}},
-      div({{"style",
-            "position: absolute; background: "
-            "#000000; transform-origin: bottom "
-            "left; width: 200vmax; height: 500px; "
-            "bottom: 0; left: 0; transform: "
-            "rotate(-45deg) translateY(50%); "
-            "border-bottom: 50px solid #9333EA;"}},
-          h1({{"style",
-               "position: relative; color: white; "
-               "font-weight: 900; letter-spacing: "
-               "0.4em; font-size: clamp(1.5rem, "
-               "4vw, 2.5rem); white-space: "
-               "nowrap; left: 10%; top: 10%; "
-               "text-transform: uppercase; "
-               "transform: rotate(45deg); "
-               "transform-origin: left;"}},
-             "trycopilot.ai")),
-      p({{"style",
-          "position: absolute; color: #111111; "
-          "font-weight: 300; letter-spacing: "
-          "0.15em; font-size: clamp(0.75rem, 2vw, "
-          "0.875rem); white-space: nowrap; left: "
-          "50%; bottom: 25%; text-transform: "
-          "uppercase;"}},
-        "augmented reality for" + nbsp() +
-            span({{"style", "color: #9333EA;"}},
-                 "autonomous") +
-            nbsp() + "agents"));
-
-  auto html_or = MakeWebsite(GetAuthenticatedUser(request),
-                             "/", content.str(), request);
+Response GetIndexPage(Request request, AppContext& ctx) {
+  auto html_or = MakeWebsite(
+      GetAuthenticatedUser(request, ctx), "/",
+      cs::apps::common::website::Hero(), request);
   if (!html_or.ok()) {
     return MakeWebsiteErrorResponse(html_or);
   }
   return HtmlResponse(html_or.value());
 }
 
-Response GetGame(Request request) {
+Response GetGame(Request request, AppContext& ctx) {
   using namespace cs::net::html::dom;
-  auto html_or = MakeWebsite(GetAuthenticatedUser(request),
-                             "/game/", R"html(
+  auto html_or = MakeWebsite(
+      GetAuthenticatedUser(request, ctx), "/game/", R"html(
 <canvas id="canvas"
   oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
 <hr/>
@@ -472,32 +463,34 @@ Response GetGame(Request request) {
 </script>
 <script async type="text/javascript" src="index.js"></script>
 )html",
-                             request);
+      request);
   if (!html_or.ok()) {
     return MakeWebsiteErrorResponse(html_or);
   }
   return HtmlResponse(html_or.value());
 }
 
-Response GetHealthPage(Request request) { return cs::Ok(); }
+Response GetHealthPage(Request, AppContext&) {
+  return Ok();
+}
 
 inline void WriteJson(
     const std::vector<
-        std::vector<std::vector<std::vector<int>>>> &a,
-    std::ostream &out) {
+        std::vector<std::vector<std::vector<int>>>>& a,
+    std::ostream& out) {
   out.put('[');
   for (size_t i = 0, n = a.size(); i < n; ++i) {
     if (i) out.put(',');
     out.put('[');
-    const auto &b = a[i];
+    const auto& b = a[i];
     for (size_t j = 0, m = b.size(); j < m; ++j) {
       if (j) out.put(',');
       out.put('[');
-      const auto &c = b[j];
+      const auto& c = b[j];
       for (size_t k = 0, p = c.size(); k < p; ++k) {
         if (k) out.put(',');
         out.put('[');
-        const auto &d = c[k];
+        const auto& d = c[k];
         for (size_t t = 0, q = d.size(); t < q; ++t) {
           if (t) out.put(',');
           char buf[24];
@@ -514,9 +507,9 @@ inline void WriteJson(
   out.put(']');
 }
 
-Response Render(Request request) {
+Response Render(Request request, AppContext& ctx) {
   std::function<ResultOr<unsigned int>(std::string)>
-      parse_unsigned_int = cs::parsers::ParseUnsignedInt;
+      parse_unsigned_int = ParseUnsignedInt;
 
   LOG(DEBUG) << "Rendering page with query params: "
              << STREAM_STRING_MAP(request.query_params())
@@ -541,8 +534,7 @@ Response Render(Request request) {
 
   LOG(DEBUG) << "Parsed num_frames: " << num_frames << ENDL;
 
-  cs::apps::trycopilotai::protos::GetAnimationRequest
-      get_animation_request;
+  GetAnimationRequest get_animation_request;
   get_animation_request.width = width;
   get_animation_request.height = height;
   get_animation_request.num_frames = num_frames;
@@ -550,7 +542,7 @@ Response Render(Request request) {
   const auto [get_animation_result, render_time_ms] =
       cs::util::timeit(cs::util::make_function([&]() {
         return cs::apps::trycopilotai::api::
-            GetAnimationAPI()
+            GetAnimationRPC()
                 .Process(get_animation_request);
       }));
   if (!get_animation_result.ok()) {
@@ -559,8 +551,8 @@ Response Render(Request request) {
 
   LOG(DEBUG) << "Constructing response..." << ENDL;
 
-  cs::apps::trycopilotai::protos::GetAnimationResponse
-      get_animation_response = get_animation_result.value();
+  GetAnimationResponse get_animation_response =
+      get_animation_result.value();
 
   // clang-format off
   std::stringstream ss;
@@ -634,24 +626,22 @@ Response Render(Request request) {
 
   LOG(DEBUG) << "Constructing response... done." << ENDL;
 
-  auto html_or = MakeWebsite(
-      cs::apps::trycopilotai::ui::GetAuthenticatedUser(
-          request),
-      "/render/", ss.str(), request);
+  auto html_or =
+      MakeWebsite(GetAuthenticatedUser(request, ctx),
+                  "/render/", ss.str(), request);
   if (!html_or.ok()) {
     return MakeWebsiteErrorResponse(html_or);
   }
   return HtmlResponse(html_or.value());
 }
 
-Response GetLoginPage(Request request) {
+Response GetLoginPage(Request request, AppContext& ctx) {
   using namespace cs::net::html::dom;
-  ANONYMOUS_USERS_ONLY(request);
+  ANONYMOUS_USERS_ONLY(request, ctx);
   const auto form_html =
-      cs::net::proto::form::GenerateProtoForm<LoginRequest>(
-          "/login/", "POST");
+      GenerateProtoForm<LoginRequest>("/login/", "POST");
   auto html_or = MakeWebsite(
-      cs::NotFoundError("ANONYMOUS_USERS_ONLY"), "/login/",
+      NotFoundError("ANONYMOUS_USERS_ONLY"), "/login/",
       div(h1("Login"), p("Login to your account."),
           form_html),
       request);
@@ -661,42 +651,36 @@ Response GetLoginPage(Request request) {
   return HtmlResponse(html_or.value());
 }
 
-Response PostLoginPage(Request request) {
-  ANONYMOUS_USERS_ONLY(request);
-  SET_OR_RET(LoginRequest login_request,
-             cs::net::proto::api::ExtractProtoFromRequest<
-                 LoginRequest>(request));
-
+Response PostLoginPage(Request request, AppContext& ctx) {
+  ANONYMOUS_USERS_ONLY(request, ctx);
   SET_OR_RET(
-      LoginResponse login_response,
-      cs::apps::trycopilotai::api::LoginAPI().Process(
-          login_request));
+      LoginRequest login_request,
+      ExtractProtoFromRequest<LoginRequest>(request));
+
+  SET_OR_RET(LoginResponse login_response,
+             LoginRPC(ctx).Process(login_request));
 
   auto html_or = MakeWebsite(
-      cs::apps::trycopilotai::ui::GetAuthenticatedUser(
-          request),
-      "/home/",
+      GetAuthenticatedUser(request, ctx), "/home/",
       "Logged in! Redirecting to <a "
       "href=\"/home/\">home</a>...",
       request);
   if (!html_or.ok()) {
     return MakeWebsiteErrorResponse(html_or);
   }
-  return Response(cs::net::http::HTTP_302_FOUND,
-                  kContentTypeTextHtml, html_or.value())
+  return Response(HTTP_302_FOUND, kContentTypeTextHtml,
+                  html_or.value())
       .SetHeader("Set-Cookie",
                  "auth_token=" + login_response.token.uuid +
                      AuthCookieAttributes())
       .SetHeader("Location", "/home/");
 }
 
-Response GetLogoutPage(Request request) {
-  LOGGED_IN_USERS_ONLY(request);
+Response GetLogoutPage(Request request, AppContext& ctx) {
+  LOGGED_IN_USERS_ONLY(request, ctx);
   using namespace cs::net::html::dom;
   auto html_or = MakeWebsite(
-      cs::apps::trycopilotai::ui::GetAuthenticatedUser(
-          request),
-      "/logout/",
+      GetAuthenticatedUser(request, ctx), "/logout/",
       div(h1("Logout"),
           p("Are you sure you want to log out?"),
           R"html(<form action="/logout/" method="POST">
@@ -709,10 +693,9 @@ Response GetLogoutPage(Request request) {
   return HtmlResponse(html_or.value());
 }
 
-Response PostLogoutPage(Request request) {
-  LOGGED_IN_USERS_ONLY(request);
-  auto token =
-      cs::apps::trycopilotai::ui::GetToken(request);
+Response PostLogoutPage(Request request, AppContext& ctx) {
+  LOGGED_IN_USERS_ONLY(request, ctx);
+  auto token = GetToken(request);
   std::string email = "";
   if (!token.ok() && !Result::IsNotFound(token)) {
     LOG(WARNING) << "Token not found in request." << ENDL;
@@ -721,8 +704,7 @@ Response PostLogoutPage(Request request) {
     LogoutRequest logout_request;
     logout_request.token_uuid = token.value();
     auto logout_response =
-        cs::apps::trycopilotai::api::LogoutAPI().Process(
-            logout_request);
+        LogoutRPC(ctx).Process(logout_request);
     if (!logout_response.ok() &&
         !Result::IsNotFound(logout_response.result())) {
       LOG(WARNING)
@@ -740,7 +722,7 @@ Response PostLogoutPage(Request request) {
   }
 
   // Redirect to login page after logout
-  return Response(cs::net::http::HTTP_302_FOUND,
+  return Response(HTTP_302_FOUND,
                   cs::net::http::kContentTypeTextHtml,
                   "Logged out successfully. Redirecting to "
                   "login...")
@@ -751,16 +733,14 @@ Response PostLogoutPage(Request request) {
       .SetHeader("Location", "/login/");
 }
 
-Response GetRegisterPage(Request request) {
+Response GetRegisterPage(Request request, AppContext& ctx) {
   using namespace cs::net::html::dom;
-  ANONYMOUS_USERS_ONLY(request);
+  ANONYMOUS_USERS_ONLY(request, ctx);
   const auto form_html =
-      cs::net::proto::form::GenerateProtoForm<
-          cs::apps::trycopilotai::protos::
-              CreateUserRequest>("/register/", "POST");
+      GenerateProtoForm<CreateUserRequest>("/register/",
+                                           "POST");
   auto html_or = MakeWebsite(
-      cs::NotFoundError("ANONYMOUS_USERS_ONLY"),
-      "/register/",
+      NotFoundError("ANONYMOUS_USERS_ONLY"), "/register/",
       div(h1("Register"), p("Create a new account."),
           form_html),
       request);
@@ -770,30 +750,27 @@ Response GetRegisterPage(Request request) {
   return HtmlResponse(html_or.value());
 }
 
-Response PostRegisterPage(Request request) {
-  ANONYMOUS_USERS_ONLY(request);
+Response PostRegisterPage(Request request,
+                          AppContext& ctx) {
+  ANONYMOUS_USERS_ONLY(request, ctx);
   LOG(INFO) << "[DEBUG] PostRegister START - body_size="
             << request.body().size() << " content_type="
             << (request.headers().count("Content-Type")
                     ? request.headers().at("Content-Type")
                     : "none")
             << " body=" << request.body() << ENDL;
-  SET_OR_RET(
-      cs::apps::trycopilotai::protos::CreateUserRequest
-          request_proto,
-      cs::net::proto::api::ExtractProtoFromRequest<
-          cs::apps::trycopilotai::protos::
-              CreateUserRequest>(request));
+  SET_OR_RET(CreateUserRequest request_proto,
+             ExtractProtoFromRequest<
+                 cs::apps::trycopilotai::protos::
+                     CreateUserRequest>(request));
   LOG(INFO) << "[DEBUG] Extracted proto - email="
             << request_proto.email << " password_len="
             << request_proto.password.size()
             << " confirm_len="
             << request_proto.confirm_password.size()
             << ENDL;
-  SET_OR_RET(
-      auto create_user_response,
-      cs::apps::trycopilotai::api::CreateUserAPI().Process(
-          request_proto));
+  SET_OR_RET(auto create_user_response,
+             CreateUserRPC(ctx).Process(request_proto));
 
   LOG(INFO) << "[DEBUG] User created successfully: "
             << create_user_response.email
@@ -812,7 +789,7 @@ Response PostRegisterPage(Request request) {
             << token.uuid
             << " user_uuid=" << token.user_uuid << ENDL;
   auto insert_result =
-      cs::net::proto::db::Insert("tokens", token);
+      Upsert("tokens", token, *ctx.Get<IDatabaseClient>());
   if (!insert_result.ok()) {
     LOG(ERROR) << "[DEBUG] Token INSERT FAILED: "
                << insert_result.message() << ENDL;
@@ -835,23 +812,21 @@ Response PostRegisterPage(Request request) {
       << R"(<meta http-equiv="refresh" content="5;url=/home/">)";
 
   auto html_or = MakeWebsite(
-      cs::NotFoundError("Registration success"),
-      "/register/", success_html.str(), request);
+      NotFoundError("Registration success"), "/register/",
+      success_html.str(), request);
   if (!html_or.ok()) {
     return MakeWebsiteErrorResponse(html_or);
   }
-  return Response(cs::net::http::HTTP_200_OK,
-                  kContentTypeTextHtml, html_or.value())
+  return Response(HTTP_200_OK, kContentTypeTextHtml,
+                  html_or.value())
       .SetHeader("Set-Cookie", "auth_token=" + token.uuid +
                                    AuthCookieAttributes());
 }
 
-Response GetHomePage(Request request) {
-  LOGGED_IN_USERS_ONLY(request);
+Response GetHomePage(Request request, AppContext& ctx) {
+  LOGGED_IN_USERS_ONLY(request, ctx);
 
-  auto user =
-      cs::apps::trycopilotai::ui::GetAuthenticatedUser(
-          request);
+  auto user = GetAuthenticatedUser(request, ctx);
 
   std::stringstream ss;
   ss << R"html(
@@ -864,12 +839,13 @@ Response GetHomePage(Request request) {
        <h2>Sitemap</h2>
          <ul>)html";
     SET_OR_RET(
-        cs::apps::trycopilotai::protos::Context context,
+        WebAppMeta web_app_meta,
         Context::Read("APP_CONTEXT").then([&](auto s) {
-          return cs::apps::trycopilotai::protos::Context()
-              .Parse(s);
+          return cs::apps::trycopilotai::protos::
+              WebAppMeta()
+                  .Parse(s);
         }));
-    for (auto route : context.routes) {
+    for (auto route : web_app_meta.routes) {
       ss << "<li><code>" << route.method
          << "&nbsp;<a href=\"" << route.path << "\">"
          << route.path << "</a></code></li>";
@@ -884,15 +860,13 @@ Response GetHomePage(Request request) {
   return HtmlResponse(html_or.value());
 }
 
-Response GetLogsPage(Request request) {
-  ADMIN_USERS_ONLY(auto user, request);
+Response GetLogsPage(Request request, AppContext& ctx) {
+  ADMIN_USERS_ONLY(auto user, request, ctx);
 
-  SET_OR_RET(
-      cs::apps::trycopilotai::protos::ListLogsResponse
-          response,
-      cs::apps::trycopilotai::api::ListLogsAPI().Process(
-          cs::apps::trycopilotai::protos::
-              ListLogsRequest()));
+  SET_OR_RET(ListLogsResponse response,
+             ListLogsRPC(ctx).Process(
+                 cs::apps::trycopilotai::protos::
+                     ListLogsRequest()));
 
   std::stringstream ss;
   using namespace cs::net::html::dom;
@@ -910,7 +884,7 @@ Response GetLogsPage(Request request) {
     <th>Result Code</th>
   </tr>)html";
 
-  for (const auto &log : response.http_logs) {
+  for (const auto& log : response.http_logs) {
     ss << "<tr>";
     ss << "<td><code>" << log.uuid << "</code></td>";
     ss << "<td><code>"
@@ -940,15 +914,13 @@ Response GetLogsPage(Request request) {
   return HtmlResponse(html_or.value());
 }
 
-Response GetAppLogsPage(Request request) {
-  ADMIN_USERS_ONLY(auto user, request);
+Response GetAppLogsPage(Request request, AppContext& ctx) {
+  ADMIN_USERS_ONLY(auto user, request, ctx);
 
-  SET_OR_RET(
-      cs::apps::trycopilotai::protos::ListAppLogsResponse
-          response,
-      cs::apps::trycopilotai::api::ListAppLogsAPI().Process(
-          cs::apps::trycopilotai::protos::
-              ListAppLogsRequest()));
+  SET_OR_RET(ListAppLogsResponse response,
+             ListAppLogsRPC(ctx).Process(
+                 cs::apps::trycopilotai::protos::
+                     ListAppLogsRequest()));
 
   std::stringstream ss;
   using namespace cs::net::html::dom;
@@ -964,7 +936,7 @@ Response GetAppLogsPage(Request request) {
     <th>Message</th>
   </tr>)html";
 
-  for (const auto &log : response.items) {
+  for (const auto& log : response.items) {
     ss << "<tr>";
     ss << "<td><code>" << log.timestamp << "</code></td>";
     ss << "<td><code>" << log.level << "</code></td>";
@@ -989,33 +961,32 @@ Response GetAppLogsPage(Request request) {
   return HtmlResponse(html_or.value());
 }
 
-Response GetQuitPage(Request request) {
-  ADMIN_USERS_ONLY(auto user, request);
+Response GetQuitPage(Request request, AppContext& ctx) {
+  ADMIN_USERS_ONLY(auto user, request, ctx);
   // Flush buffer with endl
   LOG(FATAL) << "Quitting app." << ENDL;
   exit(-1);
 }
 
-cs::net::http::Response GetCodePage(Request request) {
-  auto domain_or = cs::apps::common::GetDomainForService(
-      "code-viewer", request);
+Response GetCodePage(Request request, AppContext&) {
+  auto domain_or =
+      GetDomainForService("code-viewer", request);
   if (!domain_or.ok()) {
-    return Response(
-        cs::net::http::HTTP_500_INTERNAL_SERVER_ERROR,
-        kContentTypeTextPlain, domain_or.message());
+    return Response(HTTP_500_INTERNAL_SERVER_ERROR,
+                    kContentTypeTextPlain,
+                    domain_or.message());
   }
   std::string redirect_url =
       "https://" + domain_or.value() + "/";
 
-  return Response(cs::net::http::HTTP_302_FOUND,
-                  kContentTypeTextPlain,
+  return Response(HTTP_302_FOUND, kContentTypeTextPlain,
                   "Redirecting to code viewer...")
       .SetHeader("Location", redirect_url);
 }
 
-cs::net::http::Response GetNewWebsite(Request request) {
+Response GetNewWebsite(Request request, AppContext& ctx) {
   auto html_or = cs::apps::trycopilotai::ui::MakeWebsite(
-      GetAuthenticatedUser(request), "/new/",
+      GetAuthenticatedUser(request, ctx), "/new/",
       R"html(
 <h1>New Website</h1>
 <p>This is a new website!</p>
@@ -1024,13 +995,13 @@ cs::net::http::Response GetNewWebsite(Request request) {
   if (!html_or.ok()) {
     return MakeWebsiteErrorResponse(html_or);
   }
-  return cs::net::http::HtmlResponse(html_or.value());
+  return HtmlResponse(html_or.value());
 }
 
-cs::net::http::Response GetAboutPage(Request request) {
+Response GetAboutPage(Request request, AppContext& ctx) {
   using namespace ::cs::net::html::dom;
   auto html_or = cs::apps::trycopilotai::ui::MakeWebsite(
-      GetAuthenticatedUser(request), "/about/",
+      GetAuthenticatedUser(request, ctx), "/about/",
       div(h1("About" + nbsp() + code("cs")), hr(),
           p("This web application is handled by a C++ "
             "framework made only using standard "
@@ -1062,7 +1033,7 @@ cs::net::http::Response GetAboutPage(Request request) {
   if (!html_or.ok()) {
     return MakeWebsiteErrorResponse(html_or);
   }
-  return cs::net::http::HtmlResponse(html_or.value());
+  return HtmlResponse(html_or.value());
 }
 
 }  // namespace cs::apps::trycopilotai::ui

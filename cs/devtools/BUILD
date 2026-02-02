@@ -15,13 +15,6 @@ py_binary(
 )
 
 py_binary(
-    name = "use_usings",
-    srcs = ["use_usings.py"],
-    main = "use_usings.py",
-    python_version = "PY3",
-)
-
-py_binary(
     name = "enforce_header_guards",
     srcs = ["enforce_header_guards.py"],
     main = "enforce_header_guards.py",
@@ -184,6 +177,16 @@ py_test(
     deps = [
         requirement("pyyaml"),
     ],
+)
+
+py_test(
+    name = "test_publish_code_unit",
+    srcs = [
+        "publish_code.py",
+        "test_publish_code_unit.gpt.py",
+    ],
+    main = "test_publish_code_unit.gpt.py",
+    python_version = "PY3",
 )
 
 exports_files(["requirements.txt"])

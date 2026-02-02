@@ -277,33 +277,43 @@ def GenerateGetFieldPathSpecialization(proto: Proto, PROTOS: ProtoDB) -> str:
 
     constants_code = "\n".join(constants) if constants else ""
 
-    # Generate template specialization
+    # Generate template specialization - wrap each comparison in if constexpr
+    # so we only compare member_ptr to fields of matching type.
     cases = []
     for field in proto.fields:
+        field_fqn = FullyQualifiedType(field.type, PROTOS)
         const_name = (
             f"cs::net::proto::db::codegen_helpers::k{proto.name}_{field.name}_path"
         )
         cases.append(
-            f"      if (member_ptr == &{proto_fqn}::{field.name}) return {const_name};"
+            f"      if constexpr (std::is_same_v<FieldType, {field_fqn}>) {{\n"
+            f"        if (member_ptr == &{proto_fqn}::{field.name}) "
+            f"return {const_name};\n      }}"
         )
 
-    cases_code = "\n".join(cases) if cases else '      return "";'
+    cases_code = "\n".join(cases) if cases else "      std::abort();"
 
     if not constants_code:
         return ""
 
     return f"""
+#include <cstdio>
+#include <cstdlib>
+
 #include "cs/net/proto/db/field_path_builder.gpt.hh"
 
 namespace cs::net::proto::db::codegen_helpers {{
 {constants_code}
 }}
 
-namespace cs::net::proto::db {{
+namespace {proto.namespace} {{
   template<typename FieldType>
   std::string GetFieldPath(FieldType {proto_fqn}::*member_ptr) {{
 {cases_code}
-    return "";
+    std::fprintf(stderr,
+                 "GetFieldPath: unknown member pointer for type %s\\n",
+                 "{proto_fqn}");
+    std::abort();
   }}
 }}
 """
@@ -342,6 +352,30 @@ namespace {proto.namespace} {{
 {constants_code}
 }}  // namespace {proto.namespace}
 """
+
+
+def GenerateGetFieldPathExplicitInstantiations(proto: Proto, PROTOS: ProtoDB) -> str:
+    """Generate explicit template instantiations for GetFieldPath in .cc."""
+    if not proto.fields:
+        return ""
+    proto_fqn = f"{proto.namespace}::{proto.name}"
+    seen_types = set()
+    lines = []
+    for field in proto.fields:
+        field_fqn = FullyQualifiedType(field.type, PROTOS)
+        if field_fqn in seen_types:
+            continue
+        seen_types.add(field_fqn)
+        lines.append(
+            f"template std::string GetFieldPath<{field_fqn}>("
+            f"{field_fqn} {proto_fqn}::*);"
+        )
+    if not lines:
+        return ""
+    inst_lines = "\n".join(lines)
+    return f"""namespace {proto.namespace} {{
+{inst_lines}
+}}"""
 
 
 def GenerateJsonProtoDefinitions(proto: Proto):

@@ -18,6 +18,7 @@ from cs.net.proto.codegen.generators import (
     GenerateMetaImplementation,
     GeneratedDefinitions,
     GenerateMatchersAndProtoTests,
+    GenerateGetFieldPathExplicitInstantiations,
     GenerateGetFieldPathSpecialization,
     GenerateFieldPathBuilderSupport,
 )
@@ -138,6 +139,24 @@ def WriteGeneratedCcFile(
         else '#include "cs/net/proto/protos/gencode/meta.proto.hh"\n'
     )
 
+    # Skip explicit instantiations for meta.proto (internal, complex types)
+    explicit_inst = ""
+    if not is_meta_proto:
+        explicit_inst = NEWLINE.join(
+            [
+                GenerateGetFieldPathExplicitInstantiations(struct, PROTOS)
+                for _, struct in PROTOS.items()
+                if GenerateGetFieldPathExplicitInstantiations(struct, PROTOS)
+            ]
+        )
+    explicit_inst_block = ""
+    if explicit_inst:
+        explicit_inst_block = f"""
+#include "cs/net/proto/db/field_path_builder.gpt.hh"
+
+{explicit_inst}
+"""
+
     with open(path, "w+", encoding="utf-8") as f:
         f.write(
             f"""#include "{decl_include}"
@@ -182,6 +201,7 @@ using ::cs::ResultOr;
     GenerateMetaImplementation(struct, PROTOS)
     for _, struct in PROTOS.items()
 ])}
+{explicit_inst_block}
 """
         )
 

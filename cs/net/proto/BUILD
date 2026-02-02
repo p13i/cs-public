@@ -9,19 +9,6 @@ cc_library(
 )
 
 cc_library(
-    name = "api",
-    srcs = ["api.cc"],
-    hdrs = ["api.hh"],
-    deps = [
-        "//cs:log",
-        "//cs:result",
-        "//cs/net/http:request",
-        "//cs/net/http:response",
-        "//cs/net/json:object",
-    ],
-)
-
-cc_library(
     name = "validators",
     hdrs = ["validators.gpt.hh"],
     deps = [

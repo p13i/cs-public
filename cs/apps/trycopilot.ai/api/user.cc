@@ -2,36 +2,27 @@
 #include "cs/apps/trycopilot.ai/api/user.hh"
 
 #include "cs/apps/trycopilot.ai/protos/auth.proto.hh"
+#include "cs/apps/trycopilot.ai/protos/gencode/user.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/user.proto.hh"
 #include "cs/log.hh"
 #include "cs/net/http/request.hh"
 #include "cs/net/http/response.hh"
 #include "cs/net/http/web_app.hh"
-#include "cs/net/proto/api.hh"
+#include "cs/net/proto/db/client.gpt.hh"
 #include "cs/net/proto/db/query_helpers.gpt.hh"
 #include "cs/net/proto/db/query_view.gpt.hh"
 #include "cs/net/rpc/rpc.hh"
 #include "cs/parsers/parsers.hh"
 #include "cs/result.hh"
 #include "cs/util/context.hh"
+#include "cs/util/di/context.gpt.hh"
 #include "cs/util/time.hh"
 #include "cs/util/uuid.hh"
 
-namespace {
-using ::cs::InvalidArgument;
-using ::cs::apps::trycopilotai::protos::CreateUserRequest;
-using ::cs::apps::trycopilotai::protos::CreateUserResponse;
-using ::cs::apps::trycopilotai::protos::LoginRequest;
-using ::cs::apps::trycopilotai::protos::LogoutResponse;
-using ::cs::apps::trycopilotai::protos::Token;
-using ::cs::apps::trycopilotai::protos::User;
-using ::cs::net::http::HtmlResponse;
-using ::cs::net::http::HTTP_200_OK;
-using ::cs::net::http::kContentTypeTextHtml;
-using ::cs::net::http::Request;
-using ::cs::net::http::Response;
-using ::cs::net::proto::db::EQUALS;
+namespace {  // use_usings
+}  // namespace
 
+namespace {  // impl
 // djb2
 std::string HashPassword(std::string password,
                          std::string salt) {
@@ -50,55 +41,62 @@ std::string HashPassword(std::string password,
 
 namespace cs::apps::trycopilotai::api {
 
-IMPLEMENT_API(CreateUserAPI, CreateUserRequest,
+using ::cs::apps::trycopilotai::protos::CreateUserRequest;
+using ::cs::apps::trycopilotai::protos::CreateUserResponse;
+
+IMPLEMENT_RPC(CreateUserRPC, CreateUserRequest,
               CreateUserResponse) {
-  // Validation
   if (request.email.empty()) {
     return TRACE(
-        InvalidArgument("Email must not be empty."));
+        ::cs::InvalidArgument("Email must not be empty."));
   }
   if (request.password.empty()) {
-    return TRACE(
-        InvalidArgument("Password must not be empty."));
+    return TRACE(::cs::InvalidArgument(
+        "Password must not be empty."));
   }
   if (request.confirm_password.empty()) {
-    return TRACE(InvalidArgument(
+    return TRACE(::cs::InvalidArgument(
         "Password confirmation must not be empty."));
   }
   if (request.password != request.confirm_password) {
     return TRACE(
-        InvalidArgument("Passwords do not match."));
+        ::cs::InvalidArgument("Passwords do not match."));
   }
 
-  // Lookup if a user with this email already exists in
-  // the users database.
-  cs::net::proto::db::QueryView<User> users_query("users");
-  SET_OR_RET(
-      bool user_exists,
-      users_query.where(EQUALS("email", request.email))
-          .any());
+  SET_OR_RET(auto* ctx, GetContext());
+  auto db =
+      ctx->Get<::cs::net::proto::db::IDatabaseClient>();
+  SET_OR_RET(bool user_exists,
+             ::cs::net::proto::db::QueryView<
+                 ::cs::apps::trycopilotai::protos::User>(
+                 "users", db)
+                 .where(::cs::net::proto::db::EQUALS(
+                     &::cs::apps::trycopilotai::protos::
+                         User::email,
+                     request.email))
+                 .any());
   if (user_exists) {
-    return TRACE(
-        Error("User with this email already exists."));
+    return TRACE(::cs::Error(
+        "User with this email already exists."));
   }
 
-  // Save to database.
-  User user;
+  ::cs::apps::trycopilotai::protos::User user;
   user.email = request.email;
   user.password.salt =
-      cs::util::random::uuid::generate_uuid_v4();
+      ::cs::util::random::uuid::generate_uuid_v4();
   user.password.hash =
       HashPassword(request.password, user.password.salt);
-  user.uuid = cs::util::random::uuid::generate_uuid_v4();
+  user.uuid = ::cs::util::random::uuid::generate_uuid_v4();
   user.admin = false;
 
-  OK_OR_RET(cs::net::proto::db::Insert("users", user));
+  OK_OR_RET(::cs::net::proto::db::Upsert(
+      "users", user,
+      *ctx->Get<::cs::net::proto::db::IDatabaseClient>()));
 
-  // Return a view of the user with UUID for auto-login
-  CreateUserResponse response;
+  ::cs::apps::trycopilotai::protos::CreateUserResponse
+      response;
   response.email = user.email;
-  response.user_uuid =
-      user.uuid;  // Include UUID so caller can create token
+  response.user_uuid = user.uuid;
 
   return response;
 }
@@ -106,9 +104,15 @@ IMPLEMENT_API(CreateUserAPI, CreateUserRequest,
 }  // namespace cs::apps::trycopilotai::api
 
 namespace cs::apps::trycopilotai::rpc {
-IMPLEMENT_RPC(CreateUserRPC, CreateUserRequest,
-              CreateUserResponse) {
-  return cs::apps::trycopilotai::api::CreateUserAPI()
+
+using ::cs::apps::trycopilotai::protos::CreateUserRequest;
+using ::cs::apps::trycopilotai::protos::CreateUserResponse;
+
+::cs::ResultOr<CreateUserResponse> CreateUserRPC::Process(
+    const CreateUserRequest& request) {
+  SET_OR_RET(auto* ctx, GetContext());
+  return ::cs::apps::trycopilotai::api::CreateUserRPC(*ctx)
       .Process(request);
 }
+
 }  // namespace cs::apps::trycopilotai::rpc

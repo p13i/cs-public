@@ -31,10 +31,6 @@ services:
       prod: 5
       dev: 3
 
-    storage:
-      - mount: database-volume
-        access: read-write
-
     security:
       isolation: unprivileged
 
@@ -124,10 +120,6 @@ services:
 
     replicas: 1
 
-    storage:
-      - mount: database-volume
-        access: read-write
-
     dependencies:
       - service: www-trycopilot-ai
         requirement: available
@@ -147,10 +139,6 @@ services:
       interface: private
 
     replicas: 1
-
-    storage:
-      - mount: database-volume
-        access: read-write
 
     security:
       isolation: privileged

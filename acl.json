@@ -3,6 +3,7 @@
     {
       "principals": ["*"],
       "resources": [
+        ".agents",
         "cs",
         ".devcontainer",
         ".github",

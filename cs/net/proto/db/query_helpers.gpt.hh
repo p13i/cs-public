@@ -7,12 +7,12 @@
 #include <type_traits>
 #include <vector>
 
-#include "cs/apps/database-service/rpc.gpt.hh"
+#include "cs/log.hh"
 #include "cs/net/json/object.hh"
 #include "cs/net/json/parsers.hh"
+#include "cs/net/proto/db/client.gpt.hh"
 #include "cs/net/proto/db/field_path_builder.gpt.hh"
 #include "cs/net/proto/db/protos/database.proto.hh"
-#include "cs/net/rpc/client.hh"
 #include "cs/result.hh"
 
 namespace cs::net::proto::db {
@@ -42,6 +42,18 @@ cs::net::proto::database::Condition EQUALS(
   cond.operator_type = "eq";
   cond.value.type = "int";
   cond.value.int_value = value_int;
+  return cond;
+}
+
+template <typename FieldPathType>
+cs::net::proto::database::Condition EQUALS(
+    FieldPathType field_path, bool value_bool) {
+  cs::net::proto::database::Condition cond;
+  cond.field_path = GetFieldPathOrConvert(
+      std::forward<FieldPathType>(field_path));
+  cond.operator_type = "eq";
+  cond.value.type = "bool";
+  cond.value.bool_value = value_bool;
   return cond;
 }
 
@@ -99,17 +111,20 @@ inline std::string BuildQueryString(
 }
 
 // Helper function to insert/upsert a record with explicit
-// UUID via database-service RPC
+// UUID via database-service RPC. Client must be DI-fed
+// (compile-time: reference required).
 template <typename T>
-cs::Result Insert(const std::string& collection,
-                  const std::string& uuid, const T& value) {
+cs::Result Upsert(
+    const std::string& collection, const std::string& uuid,
+    const T& value,
+    cs::net::proto::db::IDatabaseClient& client) {
   std::string uuid_display;
   if (uuid.empty()) {
     uuid_display = "EMPTY";
   } else {
     uuid_display = uuid;
   }
-  LOG(INFO) << "[DEBUG] Insert called - collection="
+  LOG(INFO) << "[DEBUG] Upsert called - collection="
             << collection << " uuid=" << uuid_display
             << ENDL;
 
@@ -123,13 +138,7 @@ cs::Result Insert(const std::string& collection,
             << request.payload_json.substr(0, 100) << "..."
             << ENDL;
 
-  cs::net::rpc::RPCClient<
-      cs::apps::database_service::api::UpsertAPI>
-      client("http://database-service:8080");
-  SET_OR_RET(auto response,
-             client.Call("/rpc/upsert/", request));
-
-  return cs::Ok();
+  return client.Upsert(request);
 }
 
 // Helper to extract UUID if present (SFINAE)
@@ -146,12 +155,13 @@ std::string ExtractUuidIfPresent(const T& /*value*/, long) {
 }
 
 // Helper function to insert/upsert a record via
-// database-service RPC
+// database-service RPC. Client must be DI-fed.
 template <typename T>
-cs::Result Insert(const std::string& collection,
-                  const T& value) {
-  return Insert(collection, ExtractUuidIfPresent(value, 0),
-                value);
+cs::Result Upsert(
+    const std::string& collection, const T& value,
+    cs::net::proto::db::IDatabaseClient& client) {
+  return Upsert(collection, ExtractUuidIfPresent(value, 0),
+                value, client);
 }
 
 }  // namespace cs::net::proto::db

@@ -86,6 +86,7 @@ cc_library(
         "//cs:log",
         "//cs:result",
         "//cs/apps/trycopilot.ai/api:logs",
+        "//cs/util/di:context",
     ],
 )
 

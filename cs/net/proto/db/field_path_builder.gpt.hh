@@ -2,16 +2,23 @@
 #ifndef CS_NET_PROTO_DB_FIELD_PATH_BUILDER_GPT_HH
 #define CS_NET_PROTO_DB_FIELD_PATH_BUILDER_GPT_HH
 
+#include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <type_traits>
 
 namespace cs::net::proto::db {
 
+// Default: no specialization; abort at runtime.
+// Specializations from gencode + explicit instantiations in
+// proto .cc export symbols.
 template <typename T, typename FieldType>
 std::string GetFieldPath(FieldType T::*member_ptr) {
-  // Default implementation - should be specialized by
-  // codegen For now, return empty string as fallback
-  return "";
+  std::fprintf(stderr,
+               "GetFieldPath: no specialization for type; "
+               "include gencode "
+               "header. Aborting.\n");
+  std::abort();
 }
 
 template <typename T>
@@ -68,15 +75,8 @@ template <typename T>
 std::string GetFieldPathOrConvert(T&& arg) {
   if constexpr (std::is_member_pointer_v<std::decay_t<T>>) {
     return GetFieldPath(arg);
-  } else if constexpr (std::is_convertible_v<
-                           std::decay_t<T>, const char*>) {
-    // Handle string literals for backward compatibility
-    return std::string(arg);
-  } else if constexpr (std::is_same_v<std::decay_t<T>,
-                                      std::string>) {
-    // Handle std::string directly
-    return std::string(arg);
   } else {
+    // FieldProxy or FieldPathBuilder (has get_path())
     return std::string(arg.get_path());
   }
 }

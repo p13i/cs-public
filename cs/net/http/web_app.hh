@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <type_traits>
 
 #include "cs/apps/trycopilot.ai/api/logs.hh"
 #include "cs/apps/trycopilot.ai/protos/gencode/log.proto.hh"
@@ -15,17 +16,52 @@
 #include "cs/net/http/response.hh"
 #include "cs/net/http/server.hh"
 #include "cs/result.hh"
+#include "cs/util/di/context.gpt.hh"
 
 namespace cs::net::http {
 
-#define ADD_ROUTE(_app, _method, _path, _function) \
-  OK_OR_RET(_app.Register(_method, _path, _function))
+#define ADD_ROUTE(_app, _method, _path, _fn)              \
+  OK_OR_RET(                                              \
+      _app.Register(_method, _path,                       \
+                    [](cs::net::http::Request r,          \
+                       decltype(_app)::context_type& c) { \
+                      return _fn(r, c);                   \
+                    }))
+// Use for handlers that must capture (e.g. load endpoint).
+#define ADD_ROUTE_CAPTURE(_app, _method, _path, _fn) \
+  OK_OR_RET(_app.Register(_method, _path, _fn))
 
+template <typename ContextType = ::cs::util::di::Context<>>
 class WebApp {
  public:
+  using context_type = ContextType;
+
+  explicit WebApp(ContextType& ctx) : context_(&ctx) {}
+
+  // Default constructor when ContextType is Context<> (no
+  // local ctx needed).
+  template <typename T = ContextType>
+  explicit WebApp(
+      std::enable_if_t<
+          std::is_same_v<T, ::cs::util::di::Context<>>>* =
+          nullptr)
+      : context_(&DefaultEmptyContext()) {}
+
+  static ::cs::util::di::Context<>& DefaultEmptyContext() {
+    static ::cs::util::di::Context<> ctx;
+    return ctx;
+  }
+
+  float GetThreadLoad() const {
+    return server_ ? server_->GetThreadLoad() : 0.0f;
+  }
+
+  ContextType& ctx() { return *context_; }
+  const ContextType& ctx() const { return *context_; }
+
   Result Register(std::string method, std::string pattern,
                   std::function<cs::net::http::Response(
-                      cs::net::http::Request)>
+                      cs::net::http::Request, ContextType&)>
                       handler) {
     handlers_.push_back(
         std::make_tuple(method, pattern, handler));
@@ -37,7 +73,7 @@ class WebApp {
         ip_address, port);
     OK_OR_RET(server_->Bind());
     OK_OR_RET(server_->StartListening(
-        std::bind(&WebApp::main_handler, this,
+        std::bind(&WebApp<ContextType>::main_handler, this,
                   std::placeholders::_1)));
     return Ok();
   }
@@ -52,12 +88,6 @@ class WebApp {
       routes.push_back(std::make_tuple(method, pattern));
     }
     return routes;
-  }
-
-  // Get current thread pool load as ratio of active threads
-  // to total threads
-  float GetThreadLoad() const {
-    return server_ ? server_->GetThreadLoad() : 0.0f;
   }
 
  private:
@@ -79,12 +109,6 @@ class WebApp {
 
   cs::net::http::Response main_handler(
       cs::net::http::Request request) {
-    // Attach this WebApp instance to the request using
-    // shared_ptr with no-op deleter (WebApp outlives the
-    // request, so we don't need to manage lifetime)
-    request.set_app(
-        std::shared_ptr<WebApp>(this, [](WebApp*) {}));
-
     cs::net::http::Response response(HTTP_404_NOT_FOUND);
     for (auto path_info : handlers_) {
       const auto [method, pattern, handler] = path_info;
@@ -94,7 +118,7 @@ class WebApp {
       if (!PathMatches(request.path(), pattern)) {
         continue;
       }
-      response = handler(request);
+      response = handler(request, ctx());
       break;
     }
 
@@ -174,10 +198,11 @@ class WebApp {
     return response;
   };
 
-  std::vector<
-      std::tuple<std::string, std::string,
-                 std::function<cs::net::http::Response(
-                     cs::net::http::Request)>>>
+  ContextType* context_;
+  std::vector<std::tuple<
+      std::string, std::string,
+      std::function<cs::net::http::Response(
+          cs::net::http::Request, ContextType&)>>>
       handlers_;
   std::unique_ptr<cs::net::http::Server> server_;
 };

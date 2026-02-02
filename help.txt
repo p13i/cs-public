@@ -123,4 +123,3 @@ Targets:
   trees-test               Run tree view tests in cs/q/trees.
   up                       Bring up the production stack (docker-compose.yml).
   update-env               update-env rule (auto)
-  use-usings               Normalize/insert C++ `using` declarations.

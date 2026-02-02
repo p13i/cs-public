@@ -10,8 +10,14 @@
 #include "cs/log.hh"
 #include "cs/result.hh"
 
-namespace {
+namespace {  // use_usings
+using ::cs::Error;
+using ::cs::InvalidArgument;
+using ::cs::ResultOr;
+using ::cs::apps::trycopilotai::protos::PromptDriverRequest;
+}  // namespace
 
+namespace {  // impl
 // Minimal shell escaping for single-quoted arguments.
 std::string EscapeForSingleQuotes(const std::string& s) {
   std::string out;
@@ -26,7 +32,7 @@ std::string EscapeForSingleQuotes(const std::string& s) {
   return out;
 }
 
-cs::ResultOr<std::pair<int, std::string>> RunCommand(
+ResultOr<std::pair<int, std::string>> RunCommand(
     const std::string& cmd) {
   LOG(DEBUG) << "Running command: " << cmd << ENDL;
   std::array<char, 256> buffer{};
@@ -34,7 +40,7 @@ cs::ResultOr<std::pair<int, std::string>> RunCommand(
   std::unique_ptr<FILE, int (*)(FILE*)> pipe(
       popen(cmd.c_str(), "r"), pclose);
   if (!pipe) {
-    return cs::Error("Failed to open pipe for command.");
+    return Error("Failed to open pipe for command.");
   }
   while (fgets(buffer.data(), buffer.size(), pipe.get())) {
     output.append(buffer.data());
@@ -47,13 +53,17 @@ cs::ResultOr<std::pair<int, std::string>> RunCommand(
 
 namespace cs::apps::trycopilotai::api {
 
-IMPLEMENT_API(
-    PromptDriverAPI,
-    cs::apps::trycopilotai::protos::PromptDriverRequest,
-    cs::apps::trycopilotai::protos::PromptDriverResponse) {
+using ::Error;
+using ::InvalidArgument;
+using ::PromptDriverRequest;
+using ::ResultOr;
+using ::cs::apps::trycopilotai::protos::
+    PromptDriverResponse;
+
+IMPLEMENT_RPC(PromptDriverRPC, PromptDriverRequest,
+              PromptDriverResponse) {
   if (request.msg.empty()) {
-    return TRACE(
-        cs::InvalidArgument("msg must not be empty"));
+    return TRACE(InvalidArgument("msg must not be empty"));
   }
 
   std::string escaped = EscapeForSingleQuotes(request.msg);
@@ -63,7 +73,7 @@ IMPLEMENT_API(
   cmd << "MSG='" << escaped << "' make prompt 2>&1";
 
   auto run = RunCommand(cmd.str());
-  cs::apps::trycopilotai::protos::PromptDriverResponse resp;
+  PromptDriverResponse resp;
   if (!run.ok()) {
     resp.ok = false;
     resp.exit_code = -1;

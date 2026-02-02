@@ -54,6 +54,7 @@ venv/
 *.log
 build.log
 out/
+!.env
 /bin/
 package-lock.json
 *.pyc

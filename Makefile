@@ -169,7 +169,7 @@ coverage:  ## Run Bazel coverage for C++ tests and export LCOV.
 	  mkdir -p out/coverage; \
 	  cp "bazel-out/_coverage/_coverage_report.dat" "out/coverage/lcov.info"; \
 	  if command -v genhtml >/dev/null 2>&1; then \
-	    genhtml "out/coverage/lcov.info" --output-directory "out/coverage/html" >/dev/null; \
+	    genhtml "out/coverage/lcov.info" --output-directory "out/coverage/html" --ignore-errors negative >/dev/null; \
 	    echo "[coverage] html report: out/coverage/html/index.html"; \
 	  else \
 	    echo "[coverage] genhtml not found; skipping HTML report"; \
@@ -790,6 +790,3 @@ up: images-build setup-volumes ## Bring up the production stack (docker-compose.
 update-env: ## update-env rule (auto)
 	$(BAZEL) run //cs/devtools:update_env -- --env "$(CURDIR)/.env"
 
-.PHONY: use-usings
-use-usings:  ## Normalize/insert C++ `using` declarations.
-	@$(BAZEL) run //cs/devtools:use_usings -- --repo_root "$(shell pwd)/cs" $(if $(ALIAS_STL),--include_std_vector)

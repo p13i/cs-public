@@ -17,16 +17,28 @@
 #include "cs/result.hh"
 #include "cs/util/context.hh"
 
-namespace {
+namespace {  // use_usings
+using ::cs::Error;
+using ::cs::FetchResponse;
+using ::cs::InvalidArgument;
+using ::cs::ResultOr;
+using ::cs::apps::trycopilotai::protos::PromptRequest;
 using ::cs::apps::trycopilotai::protos::PromptResponse;
+using ::cs::net::http::kContentTypeApplicationJson;
+using ::cs::net::http::Request;
+using ::cs::net::json::Object;
+using ::cs::net::json::parsers::ParseObject;
+using ::cs::util::Context;
+}  // namespace
 
+namespace {  // impl
 std::optional<std::string> ReadEnvOrContext(
     const std::string& key) {
   const char* env = std::getenv(key.c_str());
   if (env != nullptr && env[0] != '\0') {
     return std::string(env);
   }
-  auto ctx = cs::util::Context::Read(key);
+  auto ctx = Context::Read(key);
   if (ctx.ok()) {
     return ctx.value();
   }
@@ -60,29 +72,26 @@ std::string ResolveChatModel() {
   return "gpt-4o-mini";
 }
 
-cs::ResultOr<std::string> ResolveChatApiKey() {
+ResultOr<std::string> ResolveChatApiKey() {
   if (auto key = ReadEnvOrContext("OPENAI_API_KEY")) {
     return *key;
   }
   if (auto key = ReadEnvOrContext("CHATGPT_API_KEY")) {
     return *key;
   }
-  return TRACE(cs::Error(
-      "Missing OPENAI_API_KEY or CHATGPT_API_KEY for "
-      "/prompt."));
+  return TRACE(
+      Error("Missing OPENAI_API_KEY or CHATGPT_API_KEY for "
+            "/prompt."));
 }
 
-cs::ResultOr<std::string> ExtractChatMessage(
+ResultOr<std::string> ExtractChatMessage(
     const std::string& body) {
-  using ::cs::net::json::Object;
-  using ::cs::net::json::parsers::ParseObject;
-
   SET_OR_RET(Object root, ParseObject(body));
   SET_OR_RET(Object choices_obj, root.get("choices"));
   auto choices = choices_obj.as(std::vector<Object>{});
   if (choices.empty()) {
     return TRACE(
-        cs::Error("Chat API response missing choices."));
+        Error("Chat API response missing choices."));
   }
 
   const Object& first_choice = choices.front();
@@ -107,8 +116,8 @@ cs::ResultOr<std::string> ExtractChatMessage(
   }
 
   return TRACE(
-      cs::Error("Chat API response did not include message "
-                "content."));
+      Error("Chat API response did not include message "
+            "content."));
 }
 
 std::string Truncate(const std::string& s, size_t max_len) {
@@ -118,29 +127,28 @@ std::string Truncate(const std::string& s, size_t max_len) {
   return s.substr(0, max_len) + "...";
 }
 
-cs::ResultOr<std::string> ExtractErrorMessage(
+ResultOr<std::string> ExtractErrorMessage(
     const std::string& body) {
-  using ::cs::net::json::parsers::ParseObject;
   SET_OR_RET(auto root, ParseObject(body));
   auto error_or = root.get("error");
   if (!error_or.ok()) {
-    return TRACE(cs::Error("No error field present."));
+    return TRACE(Error("No error field present."));
   }
   auto message_or = error_or.value().get("message");
   if (!message_or.ok()) {
     return TRACE(
-        cs::Error("No error.message present in response."));
+        Error("No error.message present in response."));
   }
   return message_or.value().as(std::string{});
 }
 
-cs::ResultOr<std::string> CallChatApi(
+ResultOr<std::string> CallChatApi(
     const std::string& prompt, std::string* raw_body_out) {
   SET_OR_RET(std::string api_key, ResolveChatApiKey());
   const std::string api_url = ResolveChatApiUrl();
   const std::string model = ResolveChatModel();
 
-  using ::cs::net::json::Object;
+  using ::Object;
   Object payload = Object::NewMap(
       {{"model", Object::NewString(model)},
        {"messages",
@@ -150,12 +158,11 @@ cs::ResultOr<std::string> CallChatApi(
 
   std::map<std::string, std::string> headers{
       {"Authorization", "Bearer " + api_key},
-      {"Content-Type",
-       cs::net::http::kContentTypeApplicationJson}};
+      {"Content-Type", kContentTypeApplicationJson}};
 
   SET_OR_RET(auto response,
-             cs::FetchResponse(api_url, "POST", headers,
-                               payload.str()));
+             FetchResponse(api_url, "POST", headers,
+                           payload.str()));
   if (raw_body_out != nullptr) {
     *raw_body_out = response.body();
   }
@@ -172,7 +179,7 @@ cs::ResultOr<std::string> CallChatApi(
     } else if (!response.body().empty()) {
       ss << ": " << Truncate(response.body(), 200);
     }
-    return TRACE(cs::Error(ss.str()));
+    return TRACE(Error(ss.str()));
   }
 
   return ExtractChatMessage(response.body());
@@ -190,14 +197,15 @@ void SetErrorMessage(PromptResponse* response,
 }  // namespace
 
 namespace cs::apps::trycopilotai::api {
-using ::cs::InvalidArgument;
-using ::cs::apps::trycopilotai::protos::PromptRequest;
-using ::cs::apps::trycopilotai::protos::PromptResponse;
-using ::cs::util::Context;
+using ::Context;
+using ::InvalidArgument;
+using ::PromptRequest;
+using ::PromptResponse;
+using ::Request;
 
-IMPLEMENT_API(PromptAPI, PromptRequest, PromptResponse) {
+IMPLEMENT_RPC(PromptRPC, PromptRequest, PromptResponse) {
   PromptResponse response{};
-  cs::net::http::Request helper;
+  Request helper;
   response.msg = helper.UrlDecode(request.msg);
   response.exit_code = -1;
   response.ok = false;
@@ -229,10 +237,10 @@ IMPLEMENT_API(PromptAPI, PromptRequest, PromptResponse) {
   return response;
 }
 
-IMPLEMENT_API(LocalPromptAPI, PromptRequest,
+IMPLEMENT_RPC(LocalPromptRPC, PromptRequest,
               PromptResponse) {
   PromptResponse response{};
-  cs::net::http::Request helper;
+  Request helper;
   response.msg = helper.UrlDecode(request.msg);
   response.exit_code = -1;
   response.ok = false;
