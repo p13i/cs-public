@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # cs/devtools/test_publish_code_unit.gpt.py
 """
-Unit tests for publish_code.py (CheckACLs, WalkACLs, clean_directory_except_git).
+Unit tests for publish_code.py (CheckACLs, WalkACLs, clean_directory_except_git, sanitize_env_content).
 
 Run via Bazel: bazel test //cs/devtools:test_publish_code_unit
 """
@@ -22,6 +22,7 @@ _spec.loader.exec_module(publish_code)
 CheckACLs = publish_code.CheckACLs
 WalkACLs = publish_code.WalkACLs
 clean_directory_except_git = publish_code.clean_directory_except_git
+sanitize_env_content = publish_code.sanitize_env_content
 ANY = publish_code.ANY
 
 
@@ -203,6 +204,38 @@ class TestCleanDirectoryExceptGit(unittest.TestCase):
             self.assertIn("not a valid directory", call_arg)
         finally:
             os.unlink(path)
+
+
+class TestSanitizeEnvContent(unittest.TestCase):
+    """Test sanitize_env_content - strip values except GID, UID, VERSION, COMMIT."""
+
+    def test_allowed_keys_keep_values_disallowed_stripped(self):
+        inp = (
+            "GID=1000\n"
+            "NAMECHEAP_API_KEY=secret\n"
+            "UID=1000\n"
+            "VERSION=v1.0.0\n"
+            "COMMIT=abc1234\n"
+            "OPENAI_API_KEY=sk-xxx\n"
+        )
+        out = sanitize_env_content(inp)
+        self.assertIn("GID=1000\n", out)
+        self.assertIn("UID=1000\n", out)
+        self.assertIn("VERSION=v1.0.0\n", out)
+        self.assertIn("COMMIT=abc1234\n", out)
+        self.assertIn("NAMECHEAP_API_KEY=\n", out)
+        self.assertIn("OPENAI_API_KEY=\n", out)
+
+    def test_comments_and_blank_lines_preserved(self):
+        inp = "# comment\n\nGID=1\n\nFOO=bar\n"
+        out = sanitize_env_content(inp)
+        self.assertEqual(out, "# comment\n\nGID=1\n\nFOO=\n")
+
+    def test_trailing_newline_preserved(self):
+        inp = "VERSION=v1\n"
+        out = sanitize_env_content(inp)
+        self.assertTrue(out.endswith("\n"))
+        self.assertEqual(out, "VERSION=v1\n")
 
 
 if __name__ == "__main__":

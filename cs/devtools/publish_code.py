@@ -20,6 +20,37 @@ ANY = "*"
 
 VERBOSE = False
 
+# Keys whose values are kept when publishing .env to the public repo; all others are stripped.
+ALLOWED_ENV_KEYS = frozenset({"GID", "UID", "VERSION", "COMMIT"})
+
+KV_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$")
+
+
+def sanitize_env_content(text: str) -> str:
+    """
+    Return .env text with values cleared for keys not in ALLOWED_ENV_KEYS.
+    Preserves line order, comments, blank lines, and trailing newline.
+    """
+    lines = text.splitlines(keepends=True)
+    if not lines and text.endswith("\n"):
+        return "\n"
+    out = []
+    for line in lines:
+        m = KV_RE.match(line)
+        if m:
+            key, _ = m.group(1), m.group(2)
+            if key in ALLOWED_ENV_KEYS:
+                out.append(line)
+            else:
+                suffix = "\n" if line.endswith("\n") else ""
+                out.append(key + "=" + suffix)
+        else:
+            out.append(line)
+    result = "".join(out)
+    if text.endswith("\n") and result and not result.endswith("\n"):
+        result += "\n"
+    return result
+
 
 def DLOG(*args):
     if VERBOSE:
@@ -125,9 +156,15 @@ def main(argv: List[str]) -> None:
         repo_path = join(REPO_DIR, resource)
         out_path = join(OUT_DIR, resource)
         os.makedirs(dirname(out_path), exist_ok=True)
-        with open(repo_path, mode="rb") as src, open(out_path, mode="wb") as dst:
-            dst.write(src.read())
-            subprocess.check_output("git add " + resource, shell=True, cwd=OUT_DIR)
+        if resource == ".env":
+            with open(repo_path, mode="r", encoding="utf-8", errors="replace") as src:
+                content = sanitize_env_content(src.read())
+            with open(out_path, mode="w", encoding="utf-8", newline="") as dst:
+                dst.write(content)
+        else:
+            with open(repo_path, mode="rb") as src, open(out_path, mode="wb") as dst:
+                dst.write(src.read())
+        subprocess.check_output("git add " + resource, shell=True, cwd=OUT_DIR)
 
 
 if __name__ == "__main__":
