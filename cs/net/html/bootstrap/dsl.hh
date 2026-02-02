@@ -24,6 +24,8 @@ struct NavbarConfig {
 
 std::string StylesheetLink();
 
+std::string IconsStylesheetLink();
+
 std::string ScriptTag();
 
 std::string Container(const std::string& variant,
@@ -50,6 +52,11 @@ std::string Dropdown(
 
 std::string WithClass(const std::string& existing,
                       const std::string& to_add);
+
+// Bootstrap alert (variant: "primary", "secondary",
+// "success", "danger", "warning", "info", "light", "dark").
+std::string Alert(const std::string& variant,
+                  const std::string& content);
 
 }  // namespace cs::net::html::bootstrap
 

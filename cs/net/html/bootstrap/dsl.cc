@@ -15,6 +15,10 @@ constexpr char kBootstrapCssUrl[] =
 constexpr char kBootstrapJsUrl[] =
     "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/"
     "bootstrap.bundle.min.js";
+constexpr char kBootstrapIconsCssUrl[] =
+    "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/"
+    "font/"
+    "bootstrap-icons.min.css";
 
 using namespace ::cs::net::html::dom;
 
@@ -22,6 +26,12 @@ using namespace ::cs::net::html::dom;
 
 std::string StylesheetLink() {
   return link({{"href", kBootstrapCssUrl},
+               {"rel", "stylesheet"},
+               {"crossorigin", "anonymous"}});
+}
+
+std::string IconsStylesheetLink() {
+  return link({{"href", kBootstrapIconsCssUrl},
                {"rel", "stylesheet"},
                {"crossorigin", "anonymous"}});
 }
@@ -138,6 +148,20 @@ std::string Dropdown(
 
   return li({{"class", "nav-item dropdown"}},
             toggle + menu);
+}
+
+std::string Alert(const std::string& variant,
+                  const std::string& content) {
+  std::string inner = content;
+  if (variant == "warning") {
+    std::string icon = span(
+        {{"class", "bi bi-exclamation-triangle me-3"}}, "");
+    std::string content_wrapper =
+        div({{"class", "flex-grow-1 min-w-0"}}, content);
+    inner = div({{"class", "d-flex align-items-center"}},
+                icon + content_wrapper);
+  }
+  return div({{"class", "alert alert-" + variant}}, inner);
 }
 
 }  // namespace cs::net::html::bootstrap

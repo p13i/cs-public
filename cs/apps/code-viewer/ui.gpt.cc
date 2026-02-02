@@ -16,12 +16,14 @@
 #include "cs/apps/common/website.gpt.hh"
 #include "cs/apps/common/website_nav.gpt.hh"
 #include "cs/log.hh"
+#include "cs/net/html/bootstrap/dsl.hh"
 #include "cs/net/html/dom.hh"
 #include "cs/net/http/request.hh"
 #include "cs/net/http/response.hh"
 #include "cs/net/http/status.hh"
 #include "cs/result.hh"
 #include "cs/util/context.hh"
+#include "cs/util/string.hh"
 
 namespace {  // use_usings
 using ::cs::Error;
@@ -38,6 +40,7 @@ using ::cs::apps::common::website::NavLink;
 using ::cs::apps::common::website::PageOptions;
 using ::cs::apps::common::website::WebsiteConfig;
 using ::cs::apps::common::website::WebsiteUserInfo;
+using ::cs::net::html::bootstrap::Alert;
 using ::cs::net::http::HtmlResponse;
 using ::cs::net::http::HTTP_200_OK;
 using ::cs::net::http::HTTP_400_BAD_REQUEST;
@@ -149,6 +152,8 @@ static std::string MakeBreadcrumbs(
     const std::string& base_path) {
   using namespace ::cs::net::html::dom;
   std::ostringstream html;
+  const std::string sep = code("&nbsp;/&nbsp;");
+  html << a("/", code("cs"));
   std::filesystem::path p =
       std::filesystem::path(rel_path).lexically_normal();
 
@@ -157,7 +162,6 @@ static std::string MakeBreadcrumbs(
     accum = (std::filesystem::path(accum) / *it)
                 .lexically_normal()
                 .string();
-    const std::string sep = code("&nbsp;/&nbsp;");
     const std::string link =
         a({}, BuildCodeHref(base_path, UrlEncode(accum)),
           code(EscapeForHtml(it->string())));
@@ -218,9 +222,35 @@ static ResultOr<std::string> MakePage(
   return MakeWebsite(config);
 }
 
+static bool PathContainsDotGit(
+    const std::string& relative_path) {
+  if (relative_path == ".git") {
+    return true;
+  }
+  if (relative_path.size() >= 5 &&
+      relative_path.compare(0, 5, ".git/") == 0) {
+    return true;
+  }
+  if (relative_path.find("/.git/") != std::string::npos) {
+    return true;
+  }
+  if (relative_path.size() >= 5 &&
+      relative_path.compare(relative_path.size() - 5, 5,
+                            "/.git") == 0) {
+    return true;
+  }
+  return false;
+}
+
 static ResultOr<std::string> RenderHtmlForSourceCodePath(
     const std::string& relative_path,
     const std::filesystem::path& base_dir) {
+  if (PathContainsDotGit(relative_path)) {
+    return TRACE(
+        PermissionDenied("Access denied: .git is not "
+                         "allowed in the code viewer."));
+  }
+
   std::ostringstream html;
   const std::string normalized_base = "/";
 
@@ -286,6 +316,9 @@ static ResultOr<std::string> RenderHtmlForSourceCodePath(
     std::ostringstream list_ss;
     for (auto& de : entries) {
       std::string name = de.path().filename().string();
+      if (name == ".git") {
+        continue;
+      }
       std::string display = name;
       if (de.is_directory()) {
         display += "/";
@@ -380,7 +413,8 @@ static ResultOr<std::string> RenderHtmlForSourceCodePath(
         {{"class", "code_block"},
          {"style",
           "display: flex; flex-direction: row; "
-          "overflow: auto;"}},
+          "overflow: auto; background: #fafafa; "
+          "border: 1px solid #ddd; border-radius: 6px;"}},
         div({{"class", "ln_col"},
              {"style",
               "flex: 0 0 auto; min-width: 3em; "
@@ -402,11 +436,28 @@ static ResultOr<std::string> RenderHtmlForSourceCodePath(
         std::filesystem::file_size(target_canon, e3);
     html << hr();
     if (!e3) {
-      html << p(span(
-          {{"class", "meta"}},
-          "Size: " + std::to_string(fsize) + " bytes."));
+      std::string github_path = relative_path;
+      if (github_path.empty() || github_path == ".") {
+        github_path = "";
+      }
+      std::string github_url =
+          "https://github.com/p13i/cs-public/blob/main/" +
+          UrlEncode(github_path);
+      html << p(span({{"class", "meta"}},
+                     "Size: " + std::to_string(fsize) +
+                         " bytes. ") +
+                nbsp() + a(github_url, "View on GitHub"));
     }
     html << hr();
+
+    if (CS_STRING_CONTAINS(relative_path, ".gpt.")) {
+      html << Alert("warning",
+                    "This file was generated exclusively "
+                    "or mostly by an LLM, indicated by " +
+                        nbsp() + code(".gpt.") + nbsp() +
+                        " in the filename.");
+      html << hr();
+    }
 
     html << code_block;
     return html.str();
@@ -450,13 +501,8 @@ Response GetCodePage(Request request, ::Context<>&) {
     return ErrorResponse(html_or);
   }
 
-  std::string page_path = rel_path;
-  if (page_path == ".") {
-    page_path = "/";
-  }
-
   auto page_or =
-      MakePage(page_path, html_or.value(), request);
+      MakePage("Code Viewer", html_or.value(), request);
   if (!page_or.ok()) {
     return ErrorResponse(page_or);
   }

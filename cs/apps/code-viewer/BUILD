@@ -15,9 +15,11 @@ cc_library(
         "//cs/apps/common:website",
         "//cs/apps/common:website_nav",
         "//cs/net/html:dom",
+        "//cs/net/html/bootstrap",
         "//cs/net/http:request",
         "//cs/net/http:response",
         "//cs/util:context",
+        "//cs/util:string",
         "//cs/util/di:context",
     ],
 )

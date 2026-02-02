@@ -75,7 +75,10 @@ def clean_directory_except_git(directory_path):
             print(f"Skipping .git folder: {item_path}")
             continue  # Skip the .git folder
 
-        if os.path.isfile(item_path):
+        if os.path.islink(item_path):
+            os.unlink(item_path)
+            print(f"Removed symlink: {item_path}")
+        elif os.path.isfile(item_path):
             os.remove(item_path)
             print(f"Removed file: {item_path}")
         elif os.path.isdir(item_path):

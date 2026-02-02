@@ -122,10 +122,10 @@ std::string Hero() {
           "color: rgba(255,255,255,0.7); "
           "max-width: min(90vw, 32rem); "
           "text-shadow: 0px 0px 2px rgba(0, 0, 0, 0.8);"}},
-        "augmented reality for " +
+        "augmented reality for" + nbsp() +
             span({{"style", "color: #9333EA;"}},
                  "autonomous") +
-            " agents");
+            nbsp() + "agents");
 
   // Content layer
   std::string content_layer =
@@ -161,7 +161,8 @@ std::string MakeWebsite(const WebsiteConfig& config) {
           meta({{"http-equiv", "Content-Type"},
                 {"content", "text/html; charset=utf-8"}}),
           R"html(<meta name="viewport" content="width=device-width, initial-scale=1">)html",
-          title(title_value), bootstrap::StylesheetLink()),
+          title(title_value), bootstrap::StylesheetLink(),
+          bootstrap::IconsStylesheetLink()),
       body(MakeHeader(config),
            div({{"class", "container-md"},
                 {"style",
