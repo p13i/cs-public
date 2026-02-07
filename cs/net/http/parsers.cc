@@ -8,13 +8,13 @@
 
 #include "cs/result.hh"
 
-namespace cs::net::http::parsers {
-
-namespace {
+namespace {  // use_usings
 using ::cs::Error;
 using ::cs::Ok;
 using ::cs::Result;
 }  // namespace
+
+namespace cs::net::http::parsers {
 
 Result AtEndOfLine(std::string str, unsigned int cursor) {
   if (cursor >= str.length()) {

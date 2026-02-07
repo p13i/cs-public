@@ -11,7 +11,7 @@
 #include "cs/net/html/minify.hh"
 #include "cs/util/context.hh"
 
-namespace {
+namespace {  // use_usings
 using ::cs::apps::common::protos::WebsiteConfig;
 using ::cs::net::html::dom::a;
 using ::cs::net::html::dom::body;
@@ -23,6 +23,10 @@ using ::cs::net::html::dom::meta;
 using ::cs::net::html::dom::p;
 using ::cs::net::html::dom::span;
 using ::cs::net::html::dom::title;
+using ::cs::util::Context;
+}  // namespace
+
+namespace {
 namespace bootstrap = ::cs::net::html::bootstrap;
 
 std::string NormalizeBase(const WebsiteConfig& config) {

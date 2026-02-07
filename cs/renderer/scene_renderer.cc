@@ -15,7 +15,8 @@
 #include "cs/util/parallel.hh"
 
 namespace {  // use_usings
-using p2 = ::cs::renderer::geo::Point2;
+using ::cs::renderer::geo::Point2;
+using ::cs::util::ParallelForChunks;
 }  // namespace
 
 namespace cs::renderer {
@@ -25,14 +26,14 @@ void SceneRenderer::RenderPixel(
     const RenderContext& ctx) const {
   // Map pixel coordinate -> film units (centered),
   // preserving original mapping.
-  const p2 film_point = map_value(
-      p2(static_cast<float>(film_x),
-         static_cast<float>(film_y)),
-      p2(0.f, 0.f),
-      p2(static_cast<float>(ctx.width),
-         static_cast<float>(ctx.height)),
-      p2(-1.f * ctx.x_units / 2.f, ctx.y_units / 2.f),
-      p2(1.f * ctx.x_units / 2.f, -ctx.y_units / 2.f));
+  const Point2 film_point = map_value(
+      Point2(static_cast<float>(film_x),
+             static_cast<float>(film_y)),
+      Point2(0.f, 0.f),
+      Point2(static_cast<float>(ctx.width),
+             static_cast<float>(ctx.height)),
+      Point2(-1.f * ctx.x_units / 2.f, ctx.y_units / 2.f),
+      Point2(1.f * ctx.x_units / 2.f, -ctx.y_units / 2.f));
 
   // Film plane point in world and primary camera ray
   const p3 film_point_in_world =
@@ -99,7 +100,7 @@ Film SceneRenderer::render() {
   // Parallelize by row-chunks; inside each chunk, do a
   // tight inner loop on x. Chunk size of 4 rows is a good
   // starting point for cache locality.
-  cs::util::ParallelForChunks(
+  ParallelForChunks(
       /*begin=*/
       0,
       /*end=*/height,

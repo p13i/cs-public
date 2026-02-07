@@ -3,8 +3,10 @@
 
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::apps::trycopilotai::text::fonts::
     SampleCharacterPixel;
+}  // namespace
 
 TEST(MonoFontTest, SamplesLettersAndSpace) {
   EXPECT_TRUE(SampleCharacterPixel('A', 3, 0));

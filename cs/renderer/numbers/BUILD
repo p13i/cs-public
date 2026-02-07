@@ -26,3 +26,13 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "numbers_test",
+    srcs = ["numbers_test.gpt.cc"],
+    deps = [
+        ":clamp",
+        ":in_range",
+        "@googletest//:gtest_main",
+    ],
+)

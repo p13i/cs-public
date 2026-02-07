@@ -7,9 +7,13 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-using namespace cs::q::trees;
+namespace {  // use_usings
+using ::cs::q::queue::Queue;
+using ::cs::q::trees::LeftViewBFS;
+using ::cs::q::trees::Node;
 using ::testing::Eq;
 using ::testing::Optional;
+}  // namespace
 
 // Helper: free tree memory
 template <typename T>
@@ -22,7 +26,7 @@ void DeleteTree(Node<T>* root) {
 
 // Helper: drain queue into vector
 template <typename T>
-std::vector<T> QueueToVector(cs::q::queue::Queue<T> q) {
+std::vector<T> QueueToVector(Queue<T> q) {
   std::vector<T> out;
   while (q.Size() > 0) {
     out.push_back(q.PopFront().value());

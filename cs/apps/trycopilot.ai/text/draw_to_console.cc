@@ -3,7 +3,9 @@
 
 #include "cs/apps/trycopilot.ai/text/fonts/mono.hh"
 
+namespace {  // use_usings
 using ::cs::apps::trycopilotai::text::fonts::Mono;
+}  // namespace
 
 int main() {
   // Print each character and it's associated mono font

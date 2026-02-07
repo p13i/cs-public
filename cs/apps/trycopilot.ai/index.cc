@@ -42,6 +42,8 @@ using ::cs::apps::trycopilotai::protos::
     GetAnimationResponse;
 using ::cs::apps::trycopilotai::protos::GetUuidRequest;
 using ::cs::apps::trycopilotai::protos::GetUuidResponse;
+using ::cs::apps::trycopilotai::protos::LoginRequest;
+using ::cs::apps::trycopilotai::protos::LoginResponse;
 using ::cs::apps::trycopilotai::text::fonts::
     SampleCharacterPixel;
 using ::cs::renderer::Film;
@@ -193,17 +195,12 @@ void FetchUuid() {
 }
 
 void LoginApi() {
-  cs::apps::trycopilotai::protos::LoginRequest request;
+  LoginRequest request;
   request.email = "pramod@p13i.io";
   request.password = "p13i";
   FETCH_API(
-      POST, "/api/login/",
-      cs::apps::trycopilotai::protos::LoginRequest,
-      cs::apps::trycopilotai::protos::LoginResponse,
-      request,
-      [&](ResultOr<
-          cs::apps::trycopilotai::protos::LoginResponse>
-              result) {
+      POST, "/api/login/", LoginRequest, LoginResponse,
+      request, [&](ResultOr<LoginResponse> result) {
         if (!result.ok()) {
           LOG(ERROR) << result << ENDL;
           return;
@@ -292,8 +289,8 @@ void QueueFrame(GetAnimationResponse response) {
          y++) {
       // LOG(DEBUG) << "Setting pixel" << ENDL;
       auto pixel = response.data[0][x][y];
-      queued_frame->pixels[x][y] = cs::renderer::Pixel(
-          pixel[0], pixel[1], pixel[2], pixel[3]);
+      queued_frame->pixels[x][y] =
+          Pixel(pixel[0], pixel[1], pixel[2], pixel[3]);
     }
   }
   LOG(DEBUG) << "Set all queued_frame->pixels" << ENDL;
@@ -343,7 +340,7 @@ void DrawString(Film* film, int* xStart, const int yStart,
           continue;
         }
         film->pixels[film_x][film_y] =
-            cs::renderer::Pixel(rgba, rgba, rgba, rgba);
+            Pixel(rgba, rgba, rgba, rgba);
       }
     }
     // Move the x start position

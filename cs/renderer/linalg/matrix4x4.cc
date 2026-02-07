@@ -1,20 +1,21 @@
 // cs/renderer/linalg/matrix4x4.cc
 #include "cs/renderer/linalg/matrix4x4.hh"
 
+#include <memory.h>
+#include <stdint.h>
+
 #include "cs/renderer/numbers/in_range.hh"
 #include "cs/result.hh"
+#include "matrix4x4.hh"
 
+namespace {  // use_usings
 using ::cs::Error;
 using ::cs::Ok;
 using ::cs::Result;
 using ::cs::ResultOr;
 using ::cs::numbers::in_range;
 using ::cs::renderer::linalg::Matrix4x4;
-
-#include <memory.h>
-#include <stdint.h>
-
-#include "matrix4x4.hh"
+}  // namespace
 
 namespace {
 

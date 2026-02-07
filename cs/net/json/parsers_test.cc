@@ -7,6 +7,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::Result;
 using ::cs::net::json::Object;
 using ::cs::net::json::Type;
@@ -26,6 +27,7 @@ using ::testing::IsTrue;
 using ::testing::Lt;
 using ::testing::Matcher;
 using ::testing::StrEq;
+}  // namespace
 
 class ParseTest : public ::testing::Test {
  public:
@@ -361,10 +363,9 @@ TEST_F(ParseArrayTest, EmptyArray) {
   auto result = ParseObject("[]", &_cursor);
   ASSERT_THAT(result.ok(), IsTrue()) << result;
   EXPECT_THAT(result.value().type(), Eq(Type::kArray));
-  EXPECT_THAT(result.value()
-                  .as(std::vector<cs::net::json::Object>())
-                  .size(),
-              Eq(0));
+  EXPECT_THAT(
+      result.value().as(std::vector<Object>()).size(),
+      Eq(0));
   EXPECT_THAT(_cursor, Eq(2));
 }
 
@@ -382,8 +383,7 @@ TEST_F(ParseArrayTest, ArrayWithTwoElements) {
   auto result = ParseObject("[1,2]", &_cursor);
   ASSERT_THAT(result.ok(), IsTrue()) << result;
   EXPECT_THAT(result.value().type(), Eq(Type::kArray));
-  auto array = result.value().as(
-      std::vector<cs::net::json::Object>());
+  auto array = result.value().as(std::vector<Object>());
   EXPECT_THAT(array.size(), Eq(2));
   EXPECT_THAT(array.at(0).type(), Eq(Type::kNumber));
   EXPECT_THAT(array.at(0).as(int()), Eq(1));
@@ -398,33 +398,24 @@ TEST_F(ParseArrayTest,
   ASSERT_THAT(result.ok(), IsTrue()) << result;
   auto array = result.value();
   EXPECT_THAT(array.type(), Eq(Type::kArray));
-  EXPECT_THAT(
-      array.as(std::vector<cs::net::json::Object>()).size(),
-      Eq(3));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .type(),
+  EXPECT_THAT(array.as(std::vector<Object>()).size(),
+              Eq(3));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(0).type(),
               Eq(Type::kString));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
+  EXPECT_THAT(array.as(std::vector<Object>())
                   .at(0)
                   .as(std::string()),
               StrEq("abc"));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .type(),
+  EXPECT_THAT(array.as(std::vector<Object>()).at(1).type(),
               Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .as(float()),
-              FloatEq(1.1));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(2)
-                  .type(),
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(1).as(float()),
+      FloatEq(1.1));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(2).type(),
               Eq(Type::kBoolean));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(2)
-                  .as(bool()),
-              IsTrue());
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(2).as(bool()),
+      IsTrue());
   EXPECT_THAT(_cursor, Eq(16));
 }
 
@@ -434,24 +425,20 @@ TEST_F(ParseArrayTest, NestedArray) {
 
   auto array = result.value();
   EXPECT_EQ(array.type(), Type::kArray);
-  EXPECT_EQ(
-      array.as(std::vector<cs::net::json::Object>()).size(),
-      2);
+  EXPECT_EQ(array.as(std::vector<Object>()).size(), 2);
 
-  auto subArray1 =
-      array.as(std::vector<cs::net::json::Object>())
-          .at(0)
-          .as(std::vector<cs::net::json::Object>());
+  auto subArray1 = array.as(std::vector<Object>())
+                       .at(0)
+                       .as(std::vector<Object>());
   EXPECT_EQ(subArray1.size(), 2);
   EXPECT_EQ(subArray1.at(0).type(), Type::kNumber);
   EXPECT_THAT(subArray1.at(0).as(int()), Eq(1));
   EXPECT_EQ(subArray1.at(1).type(), Type::kNumber);
   EXPECT_THAT(subArray1.at(1).as(int()), Eq(2));
 
-  auto subArray2 =
-      array.as(std::vector<cs::net::json::Object>())
-          .at(1)
-          .as(std::vector<cs::net::json::Object>());
+  auto subArray2 = array.as(std::vector<Object>())
+                       .at(1)
+                       .as(std::vector<Object>());
   EXPECT_EQ(subArray2.size(), 2);
   EXPECT_EQ(subArray2.at(0).type(), Type::kNumber);
   EXPECT_THAT(subArray2.at(0).as(int()), Eq(3));
@@ -468,8 +455,7 @@ TEST_F(ParseMapTest, EmptyMap) {
   ASSERT_THAT(result.ok(), IsTrue()) << result;
   EXPECT_THAT(result.value().type(), Eq(Type::kMap));
   EXPECT_THAT(result.value()
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
+                  .as(std::map<std::string, Object>())
                   .size(),
               Eq(0));
   EXPECT_THAT(_cursor, Eq(2));
@@ -481,19 +467,16 @@ TEST_F(ParseMapTest, MapWithOneElement) {
   auto map = result.value();
   EXPECT_THAT(map.type(), Eq(Type::kMap));
   EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .size(),
+      map.as(std::map<std::string, Object>()).size(),
       Eq(1));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("a")
-          .type(),
-      Eq(Type::kNumber));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("a")
-          .as(int()),
-      Eq(1));
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("a")
+                  .type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("a")
+                  .as(int()),
+              Eq(1));
   EXPECT_THAT(_cursor, Eq(7));
 }
 
@@ -503,29 +486,24 @@ TEST_F(ParseMapTest, MapWithTwoElements) {
   auto map = result.value();
   EXPECT_THAT(map.type(), Eq(Type::kMap));
   EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .size(),
+      map.as(std::map<std::string, Object>()).size(),
       Eq(2));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("a")
-          .type(),
-      Eq(Type::kNumber));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("a")
-          .as(int()),
-      Eq(1));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("b")
-          .type(),
-      Eq(Type::kNumber));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("b")
-          .as(int()),
-      Eq(2));
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("a")
+                  .type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("a")
+                  .as(int()),
+              Eq(1));
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("b")
+                  .type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("b")
+                  .as(int()),
+              Eq(2));
   EXPECT_THAT(_cursor, Eq(13));
 }
 
@@ -537,39 +515,32 @@ TEST_F(ParseMapTest,
   auto map = result.value();
   EXPECT_THAT(map.type(), Eq(Type::kMap));
   EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .size(),
+      map.as(std::map<std::string, Object>()).size(),
       Eq(3));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("a")
-          .type(),
-      Eq(Type::kString));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("a")
-          .as(std::string()),
-      StrEq("abc"));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("b")
-          .type(),
-      Eq(Type::kNumber));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("b")
-          .as(float()),
-      FloatEq(1.1));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("c")
-          .type(),
-      Eq(Type::kBoolean));
-  EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("c")
-          .as(bool()),
-      IsTrue());
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("a")
+                  .type(),
+              Eq(Type::kString));
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("a")
+                  .as(std::string()),
+              StrEq("abc"));
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("b")
+                  .type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("b")
+                  .as(float()),
+              FloatEq(1.1));
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("c")
+                  .type(),
+              Eq(Type::kBoolean));
+  EXPECT_THAT(map.as(std::map<std::string, Object>())
+                  .at("c")
+                  .as(bool()),
+              IsTrue());
   EXPECT_THAT(_cursor, Eq(28));
 }
 
@@ -580,39 +551,27 @@ TEST_F(ParseMapTest, NestedMap) {
   auto map = result.value();
   EXPECT_THAT(map.type(), Eq(Type::kMap));
   EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .size(),
+      map.as(std::map<std::string, Object>()).size(),
       Eq(1));
   auto nestedMap =
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("a");
+      map.as(std::map<std::string, Object>()).at("a");
   EXPECT_THAT(nestedMap.type(), Eq(Type::kMap));
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
-                  .size(),
-              Eq(2));
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
+  EXPECT_THAT(
+      nestedMap.as(std::map<std::string, Object>()).size(),
+      Eq(2));
+  EXPECT_THAT(nestedMap.as(std::map<std::string, Object>())
                   .at("b")
                   .type(),
               Eq(Type::kNumber));
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
+  EXPECT_THAT(nestedMap.as(std::map<std::string, Object>())
                   .at("b")
                   .as(int()),
               Eq(1));
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
+  EXPECT_THAT(nestedMap.as(std::map<std::string, Object>())
                   .at("c")
                   .type(),
               Eq(Type::kNumber));
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
+  EXPECT_THAT(nestedMap.as(std::map<std::string, Object>())
                   .at("c")
                   .as(int()),
               Eq(2));
@@ -625,40 +584,28 @@ TEST_F(ParseMapTest, MapWithArray) {
   auto map = result.value();
   EXPECT_THAT(map.type(), Eq(Type::kMap));
   EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .size(),
+      map.as(std::map<std::string, Object>()).size(),
       Eq(1));
   auto array =
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("a");
+      map.as(std::map<std::string, Object>()).at("a");
   EXPECT_THAT(array.type(), Eq(Type::kArray));
-  EXPECT_THAT(
-      array.as(std::vector<cs::net::json::Object>()).size(),
-      Eq(3));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .as(int()),
-              Eq(1));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .as(int()),
-              Eq(2));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(2)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(2)
-                  .as(int()),
+  EXPECT_THAT(array.as(std::vector<Object>()).size(),
               Eq(3));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(0).type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(0).as(int()),
+      Eq(1));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(1).type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(1).as(int()),
+      Eq(2));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(2).type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(2).as(int()),
+      Eq(3));
   EXPECT_THAT(_cursor, Eq(13));
 }
 
@@ -669,50 +616,34 @@ TEST_F(ParseMapTest, MapWithMapAndArray) {
   auto map = result.value();
   EXPECT_THAT(map.type(), Eq(Type::kMap));
   EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .size(),
+      map.as(std::map<std::string, Object>()).size(),
       Eq(1));
   auto nestedMap =
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("a");
+      map.as(std::map<std::string, Object>()).at("a");
   EXPECT_THAT(nestedMap.type(), Eq(Type::kMap));
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
-                  .size(),
-              Eq(1));
-  auto array = nestedMap
-                   .as(std::map<std::string,
-                                cs::net::json::Object>())
-                   .at("b");
-  EXPECT_THAT(array.type(), Eq(Type::kArray));
   EXPECT_THAT(
-      array.as(std::vector<cs::net::json::Object>()).size(),
-      Eq(3));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .as(int()),
-              Eq(1));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .as(int()),
-              Eq(2));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(2)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(2)
-                  .as(int()),
+      nestedMap.as(std::map<std::string, Object>()).size(),
+      Eq(1));
+  auto array =
+      nestedMap.as(std::map<std::string, Object>()).at("b");
+  EXPECT_THAT(array.type(), Eq(Type::kArray));
+  EXPECT_THAT(array.as(std::vector<Object>()).size(),
               Eq(3));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(0).type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(0).as(int()),
+      Eq(1));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(1).type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(1).as(int()),
+      Eq(2));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(2).type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(2).as(int()),
+      Eq(3));
   EXPECT_THAT(_cursor, Eq(19));
 }
 
@@ -723,73 +654,51 @@ TEST_F(ParseMapTest, MapWithMapAndArrayAndMap) {
   auto map = result.value();
   EXPECT_THAT(map.type(), Eq(Type::kMap));
   EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .size(),
+      map.as(std::map<std::string, Object>()).size(),
       Eq(1));
   auto nestedMap =
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("a");
+      map.as(std::map<std::string, Object>()).at("a");
   EXPECT_THAT(nestedMap.type(), Eq(Type::kMap));
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
-                  .size(),
-              Eq(2));
-  auto array = nestedMap
-                   .as(std::map<std::string,
-                                cs::net::json::Object>())
-                   .at("b");
-  EXPECT_THAT(array.type(), Eq(Type::kArray));
   EXPECT_THAT(
-      array.as(std::vector<cs::net::json::Object>()).size(),
-      Eq(3));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .as(int()),
-              Eq(1));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .as(int()),
-              Eq(2));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(2)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(2)
-                  .as(int()),
+      nestedMap.as(std::map<std::string, Object>()).size(),
+      Eq(2));
+  auto array =
+      nestedMap.as(std::map<std::string, Object>()).at("b");
+  EXPECT_THAT(array.type(), Eq(Type::kArray));
+  EXPECT_THAT(array.as(std::vector<Object>()).size(),
               Eq(3));
-  auto nestedNestedMap =
-      nestedMap
-          .as(std::map<std::string,
-                       cs::net::json::Object>())
-          .at("c");
-  EXPECT_THAT(nestedNestedMap.type(), Eq(Type::kMap));
-  EXPECT_THAT(nestedNestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
-                  .size(),
-              Eq(1));
-  EXPECT_THAT(nestedNestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
-                  .at("d")
-                  .type(),
+  EXPECT_THAT(array.as(std::vector<Object>()).at(0).type(),
               Eq(Type::kNumber));
-  EXPECT_THAT(nestedNestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
-                  .at("d")
-                  .as(int()),
-              Eq(4));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(0).as(int()),
+      Eq(1));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(1).type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(1).as(int()),
+      Eq(2));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(2).type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(2).as(int()),
+      Eq(3));
+  auto nestedNestedMap =
+      nestedMap.as(std::map<std::string, Object>()).at("c");
+  EXPECT_THAT(nestedNestedMap.type(), Eq(Type::kMap));
+  EXPECT_THAT(
+      nestedNestedMap.as(std::map<std::string, Object>())
+          .size(),
+      Eq(1));
+  EXPECT_THAT(
+      nestedNestedMap.as(std::map<std::string, Object>())
+          .at("d")
+          .type(),
+      Eq(Type::kNumber));
+  EXPECT_THAT(
+      nestedNestedMap.as(std::map<std::string, Object>())
+          .at("d")
+          .as(int()),
+      Eq(4));
   EXPECT_THAT(_cursor, Eq(31));
 }
 
@@ -876,8 +785,8 @@ TEST_F(ParseObjectTest,
   float value = result.value().as(float());
   // May be a very small negative denormalized number (not
   // necessarily exactly -0.0)
-  EXPECT_THAT(value, ::testing::Gt(-1e-40f));
-  EXPECT_THAT(value, ::testing::Lt(0.0f));
+  EXPECT_THAT(value, Gt(-1e-40f));
+  EXPECT_THAT(value, Lt(0.0f));
   EXPECT_THAT(_cursor, Eq(13));
 }
 
@@ -945,8 +854,7 @@ TEST_F(ParseObjectTest, EmptyMap) {
   ASSERT_THAT(result.ok(), IsTrue()) << result;
   EXPECT_THAT(result.value().type(), Eq(Type::kMap));
   EXPECT_THAT(result.value()
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
+                  .as(std::map<std::string, Object>())
                   .size(),
               Eq(0));
   EXPECT_THAT(_cursor, Eq(2));
@@ -956,10 +864,9 @@ TEST_F(ParseObjectTest, EmptyArray) {
   auto result = ParseObject("[]", &_cursor);
   ASSERT_THAT(result.ok(), IsTrue()) << result;
   EXPECT_THAT(result.value().type(), Eq(Type::kArray));
-  EXPECT_THAT(result.value()
-                  .as(std::vector<cs::net::json::Object>())
-                  .size(),
-              Eq(0));
+  EXPECT_THAT(
+      result.value().as(std::vector<Object>()).size(),
+      Eq(0));
   EXPECT_THAT(_cursor, Eq(2));
 }
 
@@ -970,30 +877,21 @@ TEST_F(ParseObjectTest,
   ASSERT_THAT(result.ok(), IsTrue()) << result;
   auto array = result.value();
   EXPECT_THAT(array.type(), Eq(Type::kArray));
-  EXPECT_THAT(
-      array.as(std::vector<cs::net::json::Object>()).size(),
-      Eq(3));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .type(),
+  EXPECT_THAT(array.as(std::vector<Object>()).size(),
+              Eq(3));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(0).type(),
               Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .as(float()),
-              FloatEq(1.1));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .type(),
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(0).as(float()),
+      FloatEq(1.1));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(1).type(),
               Eq(Type::kBoolean));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .as(bool()),
-              IsTrue());
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(2)
-                  .type(),
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(1).as(bool()),
+      IsTrue());
+  EXPECT_THAT(array.as(std::vector<Object>()).at(2).type(),
               Eq(Type::kString));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
+  EXPECT_THAT(array.as(std::vector<Object>())
                   .at(2)
                   .as(std::string()),
               StrEq("abc"));
@@ -1005,25 +903,18 @@ TEST_F(ParseObjectTest, ArrayWithTwoFloats) {
   ASSERT_THAT(result.ok(), IsTrue()) << result;
   auto array = result.value();
   EXPECT_THAT(array.type(), Eq(Type::kArray));
+  EXPECT_THAT(array.as(std::vector<Object>()).size(),
+              Eq(2));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(0).type(),
+              Eq(Type::kNumber));
   EXPECT_THAT(
-      array.as(std::vector<cs::net::json::Object>()).size(),
-      Eq(2));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .type(),
+      array.as(std::vector<Object>()).at(0).as(float()),
+      FloatEq(1.1));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(1).type(),
               Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .as(float()),
-              FloatEq(1.1));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .as(float()),
-              FloatEq(2.2));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(1).as(float()),
+      FloatEq(2.2));
   EXPECT_THAT(_cursor, Eq(9));
 }
 
@@ -1036,62 +927,42 @@ TEST_F(ParseObjectTest,
   auto map = result.value();
   EXPECT_THAT(map.type(), Eq(Type::kMap));
   EXPECT_THAT(
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .size(),
+      map.as(std::map<std::string, Object>()).size(),
       Eq(2));
   auto array =
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("a");
+      map.as(std::map<std::string, Object>()).at("a");
   EXPECT_THAT(array.type(), Eq(Type::kArray));
-  EXPECT_THAT(
-      array.as(std::vector<cs::net::json::Object>()).size(),
-      Eq(2));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(0)
-                  .as(float()),
-              FloatEq(1.1));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .type(),
-              Eq(Type::kNumber));
-  EXPECT_THAT(array.as(std::vector<cs::net::json::Object>())
-                  .at(1)
-                  .as(float()),
-              FloatEq(2.2));
-  auto nestedMap =
-      map.as(std::map<std::string, cs::net::json::Object>())
-          .at("b");
-  EXPECT_THAT(nestedMap.type(), Eq(Type::kMap));
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
-                  .size(),
+  EXPECT_THAT(array.as(std::vector<Object>()).size(),
               Eq(2));
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
+  EXPECT_THAT(array.as(std::vector<Object>()).at(0).type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(0).as(float()),
+      FloatEq(1.1));
+  EXPECT_THAT(array.as(std::vector<Object>()).at(1).type(),
+              Eq(Type::kNumber));
+  EXPECT_THAT(
+      array.as(std::vector<Object>()).at(1).as(float()),
+      FloatEq(2.2));
+  auto nestedMap =
+      map.as(std::map<std::string, Object>()).at("b");
+  EXPECT_THAT(nestedMap.type(), Eq(Type::kMap));
+  EXPECT_THAT(
+      nestedMap.as(std::map<std::string, Object>()).size(),
+      Eq(2));
+  EXPECT_THAT(nestedMap.as(std::map<std::string, Object>())
                   .at("c")
                   .type(),
               Eq(Type::kBoolean));
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
+  EXPECT_THAT(nestedMap.as(std::map<std::string, Object>())
                   .at("c")
                   .as(bool()),
               IsTrue());
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
+  EXPECT_THAT(nestedMap.as(std::map<std::string, Object>())
                   .at("d")
                   .type(),
               Eq(Type::kString));
-  EXPECT_THAT(nestedMap
-                  .as(std::map<std::string,
-                               cs::net::json::Object>())
+  EXPECT_THAT(nestedMap.as(std::map<std::string, Object>())
                   .at("d")
                   .as(std::string()),
               StrEq("abc"));

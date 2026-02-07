@@ -1,0 +1,44 @@
+{
+  "probes": [
+    {
+      "description": "Health endpoint returns 200",
+      "request": { "method": "GET", "url": "/health/" },
+      "expected_response": { "status": 200 }
+    },
+    {
+      "description": "Create task with predictable uuid",
+      "request": {
+        "method": "POST",
+        "url": "/rpc/task/create/",
+        "body": {
+          "task_name": "probe.task.e2e",
+          "args": { "probe": "task-queue-roundtrip" },
+          "uuid": "a58491bb-9556-44c1-a6fd-0c7c619a1faf",
+          "consumer_service": "task-queue-prober"
+        }
+      },
+      "expected_response": {
+        "status": 200,
+        "body": {
+          "uuid": "a58491bb-9556-44c1-a6fd-0c7c619a1faf"
+        }
+      }
+    },
+    {
+      "description": "Get task status returns enqueued task",
+      "request": {
+        "method": "GET",
+        "url": "/rpc/task/status/?uuid=a58491bb-9556-44c1-a6fd-0c7c619a1faf"
+      },
+      "expected_response": { "status": 200 }
+    },
+    {
+      "description": "System status returns pending and consumed counts",
+      "request": {
+        "method": "GET",
+        "url": "/rpc/system/status/"
+      },
+      "expected_response": { "status": 200 }
+    }
+  ]
+}

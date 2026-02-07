@@ -5,7 +5,6 @@
 
 #include "cs/apps/service-registry/protos/service.proto.hh"
 #include "cs/net/proto/db/client.gpt.hh"
-#include "cs/net/proto/db/database_base_url.gpt.hh"
 #include "cs/net/rpc/rpc.hh"
 #include "cs/util/di/context.gpt.hh"
 
@@ -16,8 +15,7 @@ DECLARE_RPC(LookupServiceRPC,
                 LookupServiceRequest,
             cs::apps::service_registry::protos::
                 LookupServiceResponse,
-            CTX(cs::net::proto::db::DatabaseBaseUrl,
-                cs::net::proto::db::IDatabaseClient));
+            CTX(cs::net::proto::db::IDatabaseClient));
 
 }  // namespace cs::apps::service_registry::rpc
 

@@ -119,6 +119,8 @@ def ParseInputHeader(input_string: str, filename: str) -> ProtoDB:
             elif field_type.startswith("std::map") or field_type.startswith("map"):
                 # Keep the full type including template parameters
                 pass
+            elif field_type in ("Object", "cs::net::json::Object"):
+                field_type = Types.JSON_OBJECT
 
             fields.append(
                 Field(

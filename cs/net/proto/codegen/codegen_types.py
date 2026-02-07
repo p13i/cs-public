@@ -11,6 +11,7 @@ class Types:
     BOOL = "bool"
     VECTOR = "std::vector"
     MAP = "std::map"
+    JSON_OBJECT = "cs::net::json::Object"
 
 
 @dataclass

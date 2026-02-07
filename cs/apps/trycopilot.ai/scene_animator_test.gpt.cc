@@ -5,6 +5,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::apps::trycopilotai::SceneAnimator;
 using ::testing::Eq;
 using ::testing::FloatEq;
@@ -13,6 +14,7 @@ using ::testing::IsFalse;
 using ::testing::IsTrue;
 using ::testing::Matcher;
 using ::testing::StrEq;
+}  // namespace
 
 class SceneAnimatorTest : public ::testing::Test {
  protected:

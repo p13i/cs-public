@@ -51,7 +51,14 @@ def test_generated_files():
         "www-trycopilot-ai",
         "www-cite-pub",
         "code-viewer",
+        "data-viewer",
         "database-service",
+        "message-queue",
+        "task-queue-service",
+        "blob-service",
+        "blob-viewer",
+        "scribe-service",
+        "scribe-worker",
         "load-balancer",
         "service-registry",
         "ngrok",
@@ -85,12 +92,27 @@ def test_generated_files():
 
     print("✓ Load balancer correctly exposed in dev, internal in prod")
 
-    # Verify volumes are external where needed
-    assert (
-        prod["volumes"]["database-volume"].get("external") == True
-    ), "database-volume should be external"
+    # Verify data services use named volumes mounted at /data
+    expected_volumes = {
+        "database-service": "database-volume",
+        "blob-service": "blob-volume",
+        "scribe-worker": "scribe-workspace-volume",
+        "data-viewer": "database-volume",
+    }
+    for svc_name, vol_name in expected_volumes.items():
+        svc = prod["services"][svc_name]
+        assert "volumes" in svc, f"{svc_name} should have volumes"
+        data_mount = f"{vol_name}:/data"
+        assert (
+            data_mount in svc["volumes"]
+        ), f"{svc_name} should have volume {data_mount}, got {svc['volumes']}"
+        assert vol_name in prod.get(
+            "volumes", {}
+        ), f"{vol_name} should be declared in compose volumes"
 
-    print("✓ External volumes correctly configured")
+    print(
+        "✓ Data services use named volumes (database-volume, blob-volume, scribe-workspace-volume)"
+    )
 
     # Verify security isolation
     assert (
@@ -117,6 +139,24 @@ def test_generated_files():
         ), f"Missing runtime stage for {svc}"
 
     print("✓ Dockerfile has all build and runtime stages")
+
+    # Guard against regressing to per-stage builds: one shared build_full with multi-target bazel build
+    assert "AS build_full" in dockerfile_content, "Missing shared build_full stage"
+    build_release_lines = [
+        line
+        for line in dockerfile_content.splitlines()
+        if "build --config=release" in line
+    ]
+    assert (
+        len(build_release_lines) == 1
+    ), f"Expected exactly one 'build --config=release' RUN; got {len(build_release_lines)}"
+    assert (
+        "//" in build_release_lines[0]
+    ), "Shared build should list multiple // targets"
+
+    print(
+        "✓ Dockerfile uses single shared full build (build_full) with multi-target bazel build"
+    )
 
     print("\n✅ All tests passed!")
     return 0

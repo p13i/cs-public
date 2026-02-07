@@ -15,29 +15,23 @@
 #include "cs/util/random.hh"
 #include "cs/util/timeit.hh"
 
-namespace cs::net::load::balancer {
-
-namespace {
+namespace {  // use_usings
+using ::cs::Error;
 using ::cs::Fetch;
 using ::cs::ResultOr;
 using ::cs::net::http::HTTP_200_OK;
 using ::cs::net::http::HTTP_500_INTERNAL_SERVER_ERROR;
-using ::cs::net::http::kContentTypeTextHtml;
-using ::cs::net::http::kContentTypeTextPlain;
 using ::cs::net::http::Request;
 using ::cs::net::http::Response;
 using ::cs::net::load::balancer::protos::DownstreamClient;
-using ::cs::util::random::randomInt;
-using ::std::map;
-using ::std::string;
-using ::std::vector;
 }  // namespace
 
+namespace cs::net::load::balancer {
+
 ResultOr<DownstreamClient> PickLeastLoaded(
-    const vector<DownstreamClient>& clients) {
+    const std::vector<DownstreamClient>& clients) {
   if (clients.empty()) {
-    return TRACE(
-        cs::Error("No downstream clients available."));
+    return TRACE(Error("No downstream clients available."));
   }
 
   // Find the minimum load.
@@ -49,7 +43,7 @@ ResultOr<DownstreamClient> PickLeastLoaded(
   }
 
   // Collect all clients with the minimum load.
-  vector<size_t> candidates;
+  std::vector<size_t> candidates;
   for (size_t i = 0; i < clients.size(); ++i) {
     if (clients[i].load == min_load) {
       candidates.push_back(i);
@@ -57,14 +51,15 @@ ResultOr<DownstreamClient> PickLeastLoaded(
   }
 
   // Randomly select among candidates with equal load.
-  size_t index = randomInt(0, candidates.size() - 1);
+  size_t index =
+      cs::util::random::randomInt(0, candidates.size() - 1);
   return clients[candidates[index]];
 }
 
 // Helper to build a query string from the request's query
 // params.
-static string BuildQueryString(
-    const map<string, string>& params) {
+static std::string BuildQueryString(
+    const std::map<std::string, std::string>& params) {
   if (params.empty()) return "";
   std::stringstream ss;
   bool first = true;
@@ -79,24 +74,25 @@ static string BuildQueryString(
 // Helper to insert load balancer message into the Footer
 // component. Finds the marker element and replaces it with
 // the marker plus the load balancer message.
-static string InsertLoadBalancerMessageIntoFooter(
-    const string& html_body, const string& message) {
+static std::string InsertLoadBalancerMessageIntoFooter(
+    const std::string& html_body,
+    const std::string& message) {
   using namespace cs::net::html::dom;
 
   // Construct the marker span using the dom library, same
   // as in MakeFooterComponent().
-  const string marker =
+  const std::string marker =
       span({{"id", "load-balancer-here"}}, "");
 
   // Find the marker in the HTML body.
   size_t pos = html_body.find(marker);
-  if (pos == string::npos) {
+  if (pos == std::string::npos) {
     // Marker not found, fall back to appending.
     return html_body + message;
   }
 
   // Replace the marker with marker + message.
-  string result = html_body;
+  std::string result = html_body;
   result.replace(pos, marker.size(), marker + message);
   return result;
 }
@@ -106,7 +102,7 @@ Response ProxyToDownstream(
     const DownstreamClient& downstream) {
   const auto query =
       BuildQueryString(request._query_params);
-  string url;
+  std::string url;
   if (query.empty()) {
     url = FMT("http://%s:%d%s", downstream.host.c_str(),
               downstream.port, request._path.c_str());
@@ -118,17 +114,17 @@ Response ProxyToDownstream(
 
   auto [downstream_response_or,
         proxy_runtime_ms] =  // LCOV_EXCL_LINE
-      cs::util::timeit<cs::ResultOr<Response>>(
+      cs::util::timeit<ResultOr<Response>>(
           [&]() {  // LCOV_EXCL_LINE
-            return cs::FetchResponse(url, request._method,
-                                     request._headers,
-                                     request._body);
+            return FetchResponse(url, request._method,
+                                 request._headers,
+                                 request._body);
           });
 
   if (!downstream_response_or.ok()) {
     return Response(
         HTTP_500_INTERNAL_SERVER_ERROR,
-        kContentTypeTextPlain,
+        cs::net::http::kContentTypeTextPlain,
         FMT("Failed to fetch response from downstream: %s",
             downstream_response_or.message().c_str()));
   }
@@ -142,17 +138,18 @@ Response ProxyToDownstream(
 
   // If the response is HTML, insert the internal server
   // address into the Footer component.
-  if (response._content_type == kContentTypeTextHtml) {
+  if (response._content_type ==
+      cs::net::http::kContentTypeTextHtml) {
     // Remove Content-Length header since we're modifying
     // the body.
     response._headers.erase("Content-Length");
     using namespace cs::net::html::dom;
-    string load_balancer_message =
+    std::string load_balancer_message =
         nbsp() + "|" + nbsp() +
-        "Load balancer proxied to: " +
+        "Load balanced to:" + nbsp() +
         code(FMT("%s:%d", downstream.host.c_str(),
                  downstream.port)) +
-        FMT(" in %dms.", proxy_runtime_ms);
+        nbsp() + FMT("in %dms.", proxy_runtime_ms);
     response._body = InsertLoadBalancerMessageIntoFooter(
         response._body, load_balancer_message);
   }

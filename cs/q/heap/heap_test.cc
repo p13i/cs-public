@@ -14,6 +14,7 @@ extern "C" {
 #include "heap.hh"
 
 namespace {  // use_usings
+using ::cs::q::MaxHeap;
 using ::testing::AtLeast;
 using ::testing::Eq;
 using ::testing::FieldsAre;
@@ -209,7 +210,7 @@ TEST(Heap, InterleavedOps) {
 
 // Test C++ implementation
 TEST(MaxHeap, Basic) {
-  cs::q::MaxHeap<int> heap{3};
+  MaxHeap<int> heap{3};
   EXPECT_TRUE(heap.Insert(3, 3));
   EXPECT_TRUE(heap.Insert(2, 2));
   EXPECT_TRUE(heap.Insert(1, 1));

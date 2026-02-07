@@ -93,6 +93,12 @@ Targets:
   parse-logs               Parse /app/data/app.log into /app/data/app_logs.
   parse-logs-bin           Runs the parse_logs binary, assuming it is at `./bin/parse_logs`
   parse-logs-job           Run parse-logs every 300s until interrupted.
+  probe                    Run prober (PROBE_HOST, PROBE_PORT, PROBE_JSON). Optional PROBE_AUDIO copied as /probe_audio.mp3 when present.
+  probe-blob               Run prober against blob-service.
+  probe-mq                 Run prober against message-queue.
+  probe-scribe             Run prober against scribe-service. Uses PROBE_AUDIO (default probe fixture) when present for upload probe.
+  probe-scribe-worker      Run prober against scribe-service (worker has no HTTP server; same stack as probe-scribe).
+  probe-tq                 Run prober against task-queue-service.
   prompt                   Send a prompt to https://www.trycopilot.ai/prompt/?prompt=... (GET) and print the reply.
   pub                      Publishes the source code, respecting acl.json files, into ../cs-public
   release                  Updates the .env file with the latest COMMIT hash and commits a release.

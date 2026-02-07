@@ -7,14 +7,17 @@
 #include "cs/renderer/geo/vector3.h"
 #include "cs/renderer/precision/floats.hh"
 
-using p3 = ::cs::renderer::geo::Point3;
-using v3 = ::cs::renderer::geo::Vector3;
-using r3 = ::cs::renderer::geo::Ray3;
+namespace {  // use_usings
 using ::cs::renderer::geo::dot;
+using ::cs::renderer::geo::Point3;
+using ::cs::renderer::geo::Ray3;
+using ::cs::renderer::geo::Vector3;
+using ::cs::renderer::shapes::Plane;
+}  // namespace
 
 bool cs::renderer::shapes::Plane::intersected_by(
-    r3 ray, p3* at_point, v3* at_normal) {
-  v3 unit_normal(p3(a, b, c));  // p_n
+    Ray3 ray, Point3* at_point, Vector3* at_normal) {
+  Vector3 unit_normal(Point3(a, b, c));  // p_n
   if (!unit_normal.is_unit()) {
     return false;
   }

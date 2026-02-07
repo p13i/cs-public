@@ -68,6 +68,9 @@ routing.dev.json
 docker*.yml
 Dockerfile
 
+# Confidential recordings (do not commit)
+*.mp3
+
 # C# lab build artifacts
 /cs/labs/csharp/bin/
 /cs/labs/csharp/obj/

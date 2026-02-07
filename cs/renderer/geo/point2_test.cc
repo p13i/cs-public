@@ -6,27 +6,29 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-using p2 = ::cs::renderer::geo::Point2;
+namespace {  // use_usings
+using ::cs::renderer::geo::Point2;
 using ::testing::HasSubstr;
+}  // namespace
 
 TEST(Point2, OperatorAdd) {
-  EXPECT_EQ(p2(1, 2) + p2(4, 5), p2(5, 7));
+  EXPECT_EQ(Point2(1, 2) + Point2(4, 5), Point2(5, 7));
 }
 
 TEST(Point3, OperatorSubtract) {
-  EXPECT_EQ(p2(1, 2) - p2(4, 5), p2(-3, -3));
+  EXPECT_EQ(Point2(1, 2) - Point2(4, 5), Point2(-3, -3));
 }
 
 TEST(Point3, OperatorMultiply) {
-  EXPECT_EQ(p2(1, 2) * 3, p2(3, 6));
+  EXPECT_EQ(Point2(1, 2) * 3, Point2(3, 6));
 }
 
 TEST(Point3, OperatorDivide) {
-  EXPECT_EQ(p2(1, 2) / 3, p2(1 / 3.f, 2 / 3.f));
+  EXPECT_EQ(Point2(1, 2) / 3, Point2(1 / 3.f, 2 / 3.f));
 }
 
 TEST(Point2, StreamOutput) {
   std::ostringstream os;
-  os << p2(1.5f, -2.0f);
+  os << Point2(1.5f, -2.0f);
   EXPECT_THAT(os.str(), HasSubstr("Point2("));
 }

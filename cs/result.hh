@@ -50,11 +50,11 @@
 
 #define OK_OR_RET(rhs) OK_OR_RETURN(rhs)
 
-#define ASSERT_OK_AND_ASSIGN(lhs, rhs)   \
-  auto UNIQUE_VAR(_result) = (rhs);      \
-  ASSERT_THAT(!UNIQUE_VAR(_result).ok(), \
-              ::testing::IsTrue())       \
-      << UNIQUE_VAR(_result).message();  \
+#define ASSERT_OK_AND_ASSIGN(lhs, rhs)  \
+  auto UNIQUE_VAR(_result) = (rhs);     \
+  ASSERT_THAT(UNIQUE_VAR(_result).ok(), \
+              ::testing::IsTrue())      \
+      << UNIQUE_VAR(_result).message(); \
   lhs = UNIQUE_VAR(_result).value();
 
 // Helper macro to generate a unique variable name
@@ -62,9 +62,10 @@
 #define CONCATENATE(x, y) CONCATENATE_IMPL(x, y)
 #define CONCATENATE_IMPL(x, y) x##y
 
-#define ASSERT_OK(arg)              \
-  auto UNIQUE_VAR(_result) = (arg); \
-  ASSERT_THAT(UNIQUE_VAR(_result).ok(), IsTrue());
+#define ASSERT_OK(arg)                  \
+  auto UNIQUE_VAR(_result) = (arg);     \
+  ASSERT_THAT(UNIQUE_VAR(_result).ok(), \
+              ::testing::IsTrue());
 
 #define ASSERT_OK_EXPECT_MATCHING(arg, matcher)    \
   auto UNIQUE_VAR(_result) = (arg);                \

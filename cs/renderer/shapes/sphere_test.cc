@@ -5,95 +5,99 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-using p3 = ::cs::renderer::geo::Point3;
-using v3 = ::cs::renderer::geo::Vector3;
-using r3 = ::cs::renderer::geo::Ray3;
+namespace {  // use_usings
+using ::cs::renderer::geo::Point3;
+using ::cs::renderer::geo::Ray3;
+using ::cs::renderer::geo::Vector3;
+using ::cs::renderer::shapes::Sphere;
+}  // namespace
 
 TEST(Sphere, IntersectionOnXAxis) {
-  r3 ray(p3(0, 0, 0), p3(1, 0, 0));
-  cs::renderer::shapes::Sphere sphere(p3(5, 0, 0), 0.5);
+  Ray3 ray(Point3(0, 0, 0), Point3(1, 0, 0));
+  Sphere sphere(Point3(5, 0, 0), 0.5);
 
-  p3 intersection;
-  v3 normal;
+  Point3 intersection;
+  Vector3 normal;
   EXPECT_TRUE(
       sphere.intersected_by(ray, &intersection, &normal));
 
-  EXPECT_EQ(intersection, p3(4.5, 0, 0));
-  EXPECT_EQ(normal, v3(p3(-1, 0, 0)));
+  EXPECT_EQ(intersection, Point3(4.5, 0, 0));
+  EXPECT_EQ(normal, Vector3(Point3(-1, 0, 0)));
 }
 
 TEST(Sphere, IntersectionOnYAxis) {
-  r3 ray(p3(0, 0, 0), p3(0, 1, 0));
-  cs::renderer::shapes::Sphere sphere(p3(0, 5, 0), 1);
+  Ray3 ray(Point3(0, 0, 0), Point3(0, 1, 0));
+  Sphere sphere(Point3(0, 5, 0), 1);
 
-  p3 intersection;
-  v3 normal;
+  Point3 intersection;
+  Vector3 normal;
   EXPECT_TRUE(
       sphere.intersected_by(ray, &intersection, &normal));
 
-  EXPECT_EQ(intersection, p3(0, 4, 0));
-  EXPECT_EQ(normal, v3(p3(0, -1, 0)));
+  EXPECT_EQ(intersection, Point3(0, 4, 0));
+  EXPECT_EQ(normal, Vector3(Point3(0, -1, 0)));
 }
 
 TEST(Sphere, IntersectionOnZAxis) {
-  r3 ray(p3(0, 0, 0), p3(0, 0, 1));
-  cs::renderer::shapes::Sphere sphere(p3(0, 0, 5), 1);
+  Ray3 ray(Point3(0, 0, 0), Point3(0, 0, 1));
+  Sphere sphere(Point3(0, 0, 5), 1);
 
-  p3 intersection;
-  v3 normal;
+  Point3 intersection;
+  Vector3 normal;
   EXPECT_TRUE(
       sphere.intersected_by(ray, &intersection, &normal));
 
-  EXPECT_EQ(intersection, p3(0, 0, 4));
-  EXPECT_EQ(normal, v3(p3(0, 0, -1)));
+  EXPECT_EQ(intersection, Point3(0, 0, 4));
+  EXPECT_EQ(normal, Vector3(Point3(0, 0, -1)));
 }
 
 TEST(Sphere, IntersectionOnXYPlane) {
-  r3 ray(p3(0, 0, 0), p3(1, 1, 0));
-  cs::renderer::shapes::Sphere sphere(p3(5, 5, 0), 1);
+  Ray3 ray(Point3(0, 0, 0), Point3(1, 1, 0));
+  Sphere sphere(Point3(5, 5, 0), 1);
 
-  p3 intersection;
-  v3 normal;
+  Point3 intersection;
+  Vector3 normal;
   EXPECT_TRUE(
       sphere.intersected_by(ray, &intersection, &normal));
 
   EXPECT_EQ(intersection,
-            p3(5 - sqrtf(2) / 2, 5 - sqrtf(2) / 2, 0));
-  EXPECT_EQ(normal,
-            v3(p3(-sqrtf(2) / 2, -sqrtf(2) / 2, 0)));
+            Point3(5 - sqrtf(2) / 2, 5 - sqrtf(2) / 2, 0));
+  EXPECT_EQ(normal, Vector3(Point3(-sqrtf(2) / 2,
+                                   -sqrtf(2) / 2, 0)));
 }
 
 TEST(Sphere, IntersectionInQuadrantOne) {
-  r3 ray(p3(0, 0, 0), p3(1, 1, 1));
-  cs::renderer::shapes::Sphere sphere(p3(5, 5, 5), 1);
+  Ray3 ray(Point3(0, 0, 0), Point3(1, 1, 1));
+  Sphere sphere(Point3(5, 5, 5), 1);
 
-  p3 intersection;
-  v3 normal;
+  Point3 intersection;
+  Vector3 normal;
   EXPECT_TRUE(
       sphere.intersected_by(ray, &intersection, &normal));
 
   EXPECT_EQ(intersection,
-            p3(5 - sqrtf(3) / 3, 5 - sqrtf(3) / 3,
-               5 - sqrtf(3) / 3));
-  EXPECT_EQ(normal, v3(p3(-sqrtf(3) / 3, -sqrtf(3) / 3,
-                          -sqrtf(3) / 3)));
+            Point3(5 - sqrtf(3) / 3, 5 - sqrtf(3) / 3,
+                   5 - sqrtf(3) / 3));
+  EXPECT_EQ(normal,
+            Vector3(Point3(-sqrtf(3) / 3, -sqrtf(3) / 3,
+                           -sqrtf(3) / 3)));
 }
 
 TEST(Sphere, RejectsNonUnitRay) {
-  r3 ray(p3(0, 0, 0), p3(1, 0, 0));
-  ray.direction = v3(2.0f, 0.0f, 0.0f);
-  cs::renderer::shapes::Sphere sphere(p3(5, 0, 0), 1);
-  p3 intersection;
-  v3 normal;
+  Ray3 ray(Point3(0, 0, 0), Point3(1, 0, 0));
+  ray.direction = Vector3(2.0f, 0.0f, 0.0f);
+  Sphere sphere(Point3(5, 0, 0), 1);
+  Point3 intersection;
+  Vector3 normal;
   EXPECT_FALSE(
       sphere.intersected_by(ray, &intersection, &normal));
 }
 
 TEST(Sphere, RejectsMissingSphere) {
-  r3 ray(p3(0, 0, 0), p3(1, 0, 0));
-  cs::renderer::shapes::Sphere sphere(p3(0, 0, 5), 1);
-  p3 intersection;
-  v3 normal;
+  Ray3 ray(Point3(0, 0, 0), Point3(1, 0, 0));
+  Sphere sphere(Point3(0, 0, 5), 1);
+  Point3 intersection;
+  Vector3 normal;
   EXPECT_FALSE(
       sphere.intersected_by(ray, &intersection, &normal));
 }

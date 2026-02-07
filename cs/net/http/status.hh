@@ -32,7 +32,7 @@ struct Status {
 
 static const Status HTTP_200_OK(200, "OK");
 static const Status HTTP_201_CREATED(201, "CREATED");
-static const Status Http301MovedPermanently(
+static const Status HTTP_301_MOVED_PERMANENTLY(
     301, "MOVED PERMANENTLY");
 static const Status HTTP_302_FOUND(302, "FOUND");
 static const Status kHttp302Found(302, "FOUND");

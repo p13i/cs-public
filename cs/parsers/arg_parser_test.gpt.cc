@@ -11,6 +11,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::apps::service_registry::protos::
     LookupServiceRequest;
 using ::cs::apps::service_registry::protos::
@@ -19,9 +20,12 @@ using ::cs::apps::trycopilotai::protos::Matrix2D;
 using ::cs::apps::trycopilotai::protos::Position;
 using ::cs::net::load::simulator::protos::SimulatorConfig;
 using ::cs::parsers::ParseArgs;
+using ::testing::AnyOf;
 using ::testing::Eq;
+using ::testing::HasSubstr;
 using ::testing::IsTrue;
 using ::testing::StrEq;
+}  // namespace
 
 class ArgParserTest : public ::testing::Test {};
 
@@ -101,8 +105,7 @@ TEST_F(ArgParserTest, BoolMustBeTrueOrFalse) {
   ASSERT_THAT(result.ok(), Eq(false));
   ASSERT_THAT(
       result.message(),
-      ::testing::HasSubstr(
-          "Boolean field must be 'true' or 'false'"));
+      HasSubstr("Boolean field must be 'true' or 'false'"));
 }
 
 TEST_F(ArgParserTest, MissingEqualsSign) {
@@ -111,7 +114,7 @@ TEST_F(ArgParserTest, MissingEqualsSign) {
   ASSERT_THAT(result.ok(), Eq(false));
   ASSERT_THAT(
       result.message(),
-      ::testing::HasSubstr(
+      HasSubstr(
           "Argument must be in format --field=value"));
 }
 
@@ -121,8 +124,7 @@ TEST_F(ArgParserTest, UnknownField) {
   auto result = ParseArgs<LookupServiceRequest>(argv);
   ASSERT_THAT(result.ok(), Eq(false));
   ASSERT_THAT(result.message(),
-              ::testing::HasSubstr(
-                  "Unknown field: --unknown_field"));
+              HasSubstr("Unknown field: --unknown_field"));
 }
 
 TEST_F(ArgParserTest, EmptyArgv) {
@@ -130,7 +132,7 @@ TEST_F(ArgParserTest, EmptyArgv) {
   auto result = ParseArgs<LookupServiceRequest>(argv);
   ASSERT_THAT(result.ok(), Eq(false));
   ASSERT_THAT(result.message(),
-              ::testing::HasSubstr("argv cannot be empty"));
+              HasSubstr("argv cannot be empty"));
 }
 
 // Int field parsing tests
@@ -191,9 +193,8 @@ TEST_F(ArgParserTest, InvalidIntFormat) {
                                    "--pattern_type=abc"};
   auto result = ParseArgs<SimulatorConfig>(argv);
   ASSERT_THAT(result.ok(), Eq(false));
-  ASSERT_THAT(
-      result.message(),
-      ::testing::HasSubstr("Didn't find int in string"));
+  ASSERT_THAT(result.message(),
+              HasSubstr("Didn't find int in string"));
 }
 
 TEST_F(ArgParserTest, InvalidIntWithDecimal) {
@@ -250,9 +251,8 @@ TEST_F(ArgParserTest, SingleDashArgument) {
                                    "-found=true"};
   auto result = ParseArgs<LookupServiceResponse>(argv);
   ASSERT_THAT(result.ok(), Eq(false));
-  ASSERT_THAT(
-      result.message(),
-      ::testing::HasSubstr("Argument must start with --"));
+  ASSERT_THAT(result.message(),
+              HasSubstr("Argument must start with --"));
 }
 
 TEST_F(ArgParserTest, TooShortArgument) {
@@ -261,10 +261,9 @@ TEST_F(ArgParserTest, TooShortArgument) {
   ASSERT_THAT(result.ok(), Eq(false));
   ASSERT_THAT(
       result.message(),
-      ::testing::AnyOf(
-          ::testing::HasSubstr(
-              "Argument must start with --"),
-          ::testing::HasSubstr(
+      AnyOf(
+          HasSubstr("Argument must start with --"),
+          HasSubstr(
               "Argument must be in format --field=value")));
 }
 
@@ -273,7 +272,7 @@ TEST_F(ArgParserTest, EmptyFieldName) {
   auto result = ParseArgs<LookupServiceResponse>(argv);
   ASSERT_THAT(result.ok(), Eq(false));
   ASSERT_THAT(result.message(),
-              ::testing::HasSubstr("Unknown field: --"));
+              HasSubstr("Unknown field: --"));
 }
 
 TEST_F(ArgParserTest, EmptyFieldValue) {

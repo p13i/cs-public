@@ -6,11 +6,14 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-using p3 = ::cs::renderer::geo::Point3;
-using v3 = ::cs::renderer::geo::Vector3;
+namespace {  // use_usings
 using ::cs::renderer::geo::cross;
+using ::cs::renderer::geo::Point3;
+using ::cs::renderer::geo::Vector3;
+}  // namespace
 
 TEST(CrossProduct, CoordinateAxes) {
-  EXPECT_EQ(cross(v3(p3(1, 0, 0)), v3(p3(0, 1, 0))),
-            v3(p3(0, 0, 1)));
+  EXPECT_EQ(cross(Vector3(Point3(1, 0, 0)),
+                  Vector3(Point3(0, 1, 0))),
+            Vector3(Point3(0, 0, 1)));
 }

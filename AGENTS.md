@@ -54,6 +54,26 @@ meanings beyond the literal text entered into the prompt.
 - Avoid ternary operators in code; prefer explicit if/else
   branches.
 
+## C++ implementation style
+
+- All C++ `.cc` files must follow the `useUsings()` protocol
+  defined in `.agents/protocols/useUsings.protocol.gpt.md`.
+  When creating or editing a `.cc` file, apply the protocol
+  conventions automatically:
+  - Consolidate `::cs::` (and `::testing::` in test files)
+    fully-qualified type names into a single
+    `namespace {  // use_usings` block with `using ::...;`
+    declarations.
+  - Use the short (unqualified) name in the body wherever
+    unambiguous.
+  - Replace `using namespace ...;` with explicit per-symbol
+    usings.
+  - Do not add `using ::std::*`; use the `std::` prefix
+    directly.
+- If you are unsure whether the protocol applies to a
+  particular edit, apply it; the protocol is always safe on
+  `.cc` files.
+
 ## GPT-generated file naming rule
 
 - Any file created by GPT or with >80% GPT-generated content

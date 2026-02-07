@@ -56,6 +56,7 @@ using ::cs::Ok;
 using ::cs::ResultOr;
 using ::cs::apps::common::GetDomainForService;
 using ::cs::apps::common::website::BuildWebsiteConfig;
+using ::cs::apps::common::website::Hero;
 using ::cs::apps::common::website::NavItemSpec;
 using ::cs::apps::common::website::PageOptions;
 using ::cs::apps::common::website::WebsiteConfig;
@@ -92,7 +93,6 @@ using ::cs::net::http::kContentTypeTextHtml;
 using ::cs::net::http::kContentTypeTextPlain;
 using ::cs::net::http::Request;
 using ::cs::net::http::Response;
-using ::cs::net::proto::db::DatabaseBaseUrl;
 using ::cs::net::proto::db::EQUALS;
 using ::cs::net::proto::db::IDatabaseClient;
 using ::cs::net::proto::db::QueryView;
@@ -100,21 +100,18 @@ using ::cs::net::proto::db::Upsert;
 using ::cs::net::proto::form::GenerateProtoForm;
 using ::cs::net::rpc::ExtractProtoFromRequest;
 using ::cs::parsers::ParseUnsignedInt;
+using ::cs::util::di::Context;
 using ::cs::util::string::ToLowercase;
 }  // namespace
 
 namespace cs::apps::trycopilotai::ui {
 
-using ::cs::util::Context;
-using AppContext = ::cs::util::di::Context<
-    ::cs::net::proto::db::DatabaseBaseUrl,
-    ::cs::net::proto::db::IDatabaseClient>;
+using AppContext = Context<IDatabaseClient>;
 
-#define ANONYMOUS_USERS_ONLY(request, ctx)           \
-  if (!Result::IsNotFound(                           \
-          cs::apps::trycopilotai::ui::               \
-              GetAuthenticatedUser(request, ctx))) { \
-    return Response(HTTP_403_PERMISSION_DENIED);     \
+#define ANONYMOUS_USERS_ONLY(request, ctx)       \
+  if (!Result::IsNotFound(                       \
+          GetAuthenticatedUser(request, ctx))) { \
+    return Response(HTTP_403_PERMISSION_DENIED); \
   }
 
 #define LOGGED_IN_USERS_ONLY(request, ctx)        \
@@ -252,6 +249,28 @@ ResultOr<std::string> MakeWebsite(
   }
   {
     NavItemSpec item{};
+    SET_OR_RET(std::string data_domain,
+               GetDomainForService("data-viewer", request));
+    item.href = "https://" + data_domain + "/";
+    item.label = "Data";
+    item.requires_auth = false;
+    item.requires_admin = false;
+    item.requires_logged_out = false;
+    nav_items.push_back(item);
+  }
+  {
+    NavItemSpec item{};
+    SET_OR_RET(std::string blob_domain,
+               GetDomainForService("blob-viewer", request));
+    item.href = "https://" + blob_domain + "/";
+    item.label = "Blobs";
+    item.requires_auth = false;
+    item.requires_admin = false;
+    item.requires_logged_out = false;
+    nav_items.push_back(item);
+  }
+  {
+    NavItemSpec item{};
     item.href = "/home/";
     item.label = "Home";
     item.requires_auth = true;
@@ -349,9 +368,9 @@ static Response MakeWebsiteErrorResponse(
 }
 
 Response GetIndexPage(Request request, AppContext& ctx) {
-  auto html_or = MakeWebsite(
-      GetAuthenticatedUser(request, ctx), "/",
-      cs::apps::common::website::Hero(), request);
+  auto html_or =
+      MakeWebsite(GetAuthenticatedUser(request, ctx), "/",
+                  Hero(), request);
   if (!html_or.ok()) {
     return MakeWebsiteErrorResponse(html_or);
   }
@@ -722,8 +741,7 @@ Response PostLogoutPage(Request request, AppContext& ctx) {
   }
 
   // Redirect to login page after logout
-  return Response(HTTP_302_FOUND,
-                  cs::net::http::kContentTypeTextHtml,
+  return Response(HTTP_302_FOUND, kContentTypeTextHtml,
                   "Logged out successfully. Redirecting to "
                   "login...")
       .SetHeader("Set-Cookie",
@@ -838,13 +856,13 @@ Response GetHomePage(Request request, AppContext& ctx) {
     ss << R"html(<hr/>
        <h2>Sitemap</h2>
          <ul>)html";
-    SET_OR_RET(
-        WebAppMeta web_app_meta,
-        Context::Read("APP_CONTEXT").then([&](auto s) {
-          return cs::apps::trycopilotai::protos::
-              WebAppMeta()
-                  .Parse(s);
-        }));
+    SET_OR_RET(WebAppMeta web_app_meta,
+               cs::util::Context::Read("APP_CONTEXT")
+                   .then([&](auto s) {
+                     return cs::apps::trycopilotai::protos::
+                         WebAppMeta()
+                             .Parse(s);
+                   }));
     for (auto route : web_app_meta.routes) {
       ss << "<li><code>" << route.method
          << "&nbsp;<a href=\"" << route.path << "\">"
@@ -1002,33 +1020,44 @@ Response GetAboutPage(Request request, AppContext& ctx) {
   using namespace ::cs::net::html::dom;
   auto html_or = cs::apps::trycopilotai::ui::MakeWebsite(
       GetAuthenticatedUser(request, ctx), "/about/",
-      div(h1("About" + nbsp() + code("cs")), hr(),
-          p("This web application is handled by a C++ "
-            "framework made only using standard "
-            "library methods, with no external "
-            "includes (except curl because who wants "
-            "to "
-            "work directly with TLS, yikes)."),
-          p("This framework also supports a protocol "
-            "buffer implemention for JSON over HTTP. "
-            "This repo also includes code for a "
-            "raytracer, technical interview questions, "
-            "a protobuf-based async database; a "
-            "website archiver (to be deployed at",
+      div(h1("About" + nbsp() + code("cs")),
+          p(R"(We bring AI closer to the human experience in
+                ways that have an unambiguous and measurable
+                benefit to our users daily living. We create
+                virtual characters and
+                artificially-intelligent agents that live
+                with us, learn how to work with us, and
+                enable us to achieve our highest ambitions.
+                Through our research and engineering work,
+                we are taking the world one step closer to
+                blurring the lines between the physical and
+                digital worlds.)"),
+          hr(),
+          p(R"(This web application is handled by a C++
+                framework made only using standard library
+                methods, with no external includes (except
+                curl because who wants to work directly with
+                TLS, yikes).)"),
+          p(R"(This framework also supports a protocol
+                buffer implemention for JSON over HTTP. This
+                repo also includes code for a raytracer,
+                technical interview questions, a
+                protobuf-based async database; a website
+                archiver (to be deployed at )",
             nbsp(), a("https://cite.pub", code("cite.pub")),
-            "); all in standard C++."),
-          p(R"(Sharing demos of C-based programs is 
-                difficult because the code needs to be 
-                compiled for the host architecture. Demos 
-                in web apps, however, only require a user 
-                to open a website in their browser. This 
-                project includes a proof-of-concept 
-                implementation of WebAssembly running a 
-                C++ program in the browser (via Emscripten 
-                and with Bazel). Such a framework will 
-                allow me to share great demos in the 
-                future.)"),
-          p("-Pramod")),
+            R"(); all in standard C++.)"),
+          p(R"(Sharing demos of C-based programs is
+                difficult because the code needs to be
+                compiled for the host architecture. Demos in
+                web apps, however, only require a user to
+                open a website in their browser. This
+                project includes a proof-of-concept
+                implementation of WebAssembly running a
+                C++ program in the browser (via Emscripten
+                and with Bazel).
+                Such a framework will allow me to share
+                great demos in the future.)"),
+          p(R"(-Pramod)")),
       request);
   if (!html_or.ok()) {
     return MakeWebsiteErrorResponse(html_or);

@@ -8,20 +8,22 @@
 #include "cs/renderer/geo/vector3.h"
 #include "cs/renderer/linalg/matrix4x4.hh"
 
-using m4x4 = ::cs::renderer::linalg::Matrix4x4;
-using v3 = ::cs::renderer::geo::Vector3;
+namespace {  // use_usings
 using ::cs::renderer::geo::cross;
+using ::cs::renderer::geo::Vector3;
+using ::cs::renderer::linalg::Matrix4x4;
+}  // namespace
 
 namespace cs::renderer::linalg::transforms {
 
-Transform Translate(v3 delta) {
+Transform Translate(Vector3 delta) {
   // clang-format off
-  m4x4 m(
+  Matrix4x4 m(
     1,0,0,delta.x,
     0,1,0,delta.y,
     0,0,1,delta.z,
     0,0,0,1);
-  m4x4 m_inv(
+  Matrix4x4 m_inv(
     1,0,0,-delta.x,
     0,1,0,-delta.y,
     0,0,1,-delta.z,
@@ -32,12 +34,12 @@ Transform Translate(v3 delta) {
 
 Transform Scale(float x, float y, float z) {
   // clang-format off
-  m4x4 m(
+  Matrix4x4 m(
     x,0,0,0,
     0,y,0,0,
     0,0,z,0,
     0,0,0,1);
-  m4x4 m_inv(
+  Matrix4x4 m_inv(
     1/x, 0,   0,   0,
     0,   1/y, 0,   0,
     0,   0,   1/z, 0,
@@ -84,8 +86,8 @@ Transform RotateZ(float theta_rad) {
   return Transform(m, m.transpose());
 }
 
-Transform Rotate(float theta_rad, const v3 &axis) {
-  v3 a = axis.normalized();
+Transform Rotate(float theta_rad, const Vector3 &axis) {
+  Vector3 a = axis.normalized();
   float sinTheta = std::sin(theta_rad);
   float cosTheta = std::cos(theta_rad);
   Matrix4x4 m;
@@ -114,19 +116,17 @@ Transform Rotate(float theta_rad, const v3 &axis) {
   return Transform(m, m.transpose());
 }
 
-Transform LookAt(p3 pos, p3 look, v3 up) {
-  m4x4 cameraToWorld;
+Transform LookAt(p3 pos, p3 look, Vector3 up) {
+  Matrix4x4 cameraToWorld;
   // <<Initialize fourth column of viewing matrix>>
   cameraToWorld.data_[0][3] = pos.x;
   cameraToWorld.data_[1][3] = pos.y;
   cameraToWorld.data_[2][3] = pos.z;
   cameraToWorld.data_[3][3] = 1;
   // <<Initialize first three columns of viewing matrix>>
-  v3 dir = v3(look - pos).normalized();
-  v3 right = cs::renderer::geo::cross(up.normalized(), dir)
-                 .normalized();
-  v3 newUp =
-      cs::renderer::geo::cross(dir, right).normalized();
+  Vector3 dir = Vector3(look - pos).normalized();
+  Vector3 right = cross(up.normalized(), dir).normalized();
+  Vector3 newUp = cross(dir, right).normalized();
   cameraToWorld.data_[0][0] = right.x;
   cameraToWorld.data_[1][0] = right.y;
   cameraToWorld.data_[2][0] = right.z;

@@ -23,9 +23,8 @@
 #define PROFILING true
 #if PROFILING
 #include "cs/util/timeit.hh"
-#endif  // PROFILING
 
-namespace {
+namespace {  // use_usings
 using ::cs::Error;
 using ::cs::Ok;
 using ::cs::Result;
@@ -38,6 +37,11 @@ using ::cs::parsers::ParseFloat;
 using ::cs::parsers::ParseInt;
 using ::cs::parsers::TryConsumeString;
 using ::cs::util::fmt;
+}  // namespace
+
+#endif  // PROFILING
+
+namespace {
 
 // Helper to decode a single hex digit. Returns -1 on error.
 int HexToInt(char c) {
@@ -382,8 +386,7 @@ ResultOr<std::variant<float, int>> ParseNumber(
   OK_OR_RET(MaybeConsumeWhitespace(str, cursor));
 
   unsigned int cursor_copy = *cursor;
-  ResultOr<int> int_result =
-      cs::parsers::ParseInt(str, &cursor_copy);
+  ResultOr<int> int_result = ParseInt(str, &cursor_copy);
   if (int_result.ok()) {
     if (!InBounds(str, cursor_copy) ||
         (str[cursor_copy] != '.' &&
@@ -394,8 +397,7 @@ ResultOr<std::variant<float, int>> ParseNumber(
     }
   }
 
-  SET_OR_RET(float result,
-             cs::parsers::ParseFloat(str, cursor));
+  SET_OR_RET(float result, ParseFloat(str, cursor));
   return std::variant<float, int>(result);
 }
 
@@ -572,7 +574,7 @@ ResultOr<std::map<std::string, Object>> ParseMap(
 
 ResultOr<Object> ParseObject(std::string str) {
 #if PROFILING
-  ResultOr<Object> result = cs::Error("Result not set.");
+  ResultOr<Object> result = Error("Result not set.");
   // TIME_IT_START
   unsigned int cursor = 0;
   result = ParseObject(str, &cursor);
@@ -632,21 +634,21 @@ ResultOr<Object> ParseObject(std::string str,
       break;
     } else if (c == 'n') {
       if (!TryConsumeString(str, "null", cursor)) {
-        return TRACE(Error(cs::util::fmt(
-            "Reached unexpected character ('%c') at "
-            "cursor=%d in str=" +
-                str,
-            c, *cursor)));
+        return TRACE(Error(
+            fmt("Reached unexpected character ('%c') at "
+                "cursor=%d in str=" +
+                    str,
+                c, *cursor)));
       }
       OK_OR_RET(MaybeConsumeWhitespace(str, cursor));
       object = Object();  // null
       break;
     } else {
-      return TRACE(Error(cs::util::fmt(
-          "Reached unexpected character ('%c') at "
-          "cursor=%d in str=" +
-              str,
-          c, *cursor)));
+      return TRACE(Error(
+          fmt("Reached unexpected character ('%c') at "
+              "cursor=%d in str=" +
+                  str,
+              c, *cursor)));
     }
   }
 

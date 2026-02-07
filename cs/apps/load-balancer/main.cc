@@ -11,7 +11,7 @@
 #include "cs/parsers/arg_parser.gpt.hh"
 #include "cs/result.hh"
 
-namespace {
+namespace {  // use_usings
 using ::cs::Result;
 using ::cs::net::load::balancer::Server;
 using ::cs::net::load::balancer::protos::Config;

@@ -17,6 +17,11 @@
 
 namespace cs::net::proto::db {
 
+// Order direction for order_by(); matches database
+// OrderBy.direction.
+inline constexpr char ASC[] = "asc";
+inline constexpr char DESC[] = "desc";
+
 template <typename FieldPathType>
 cs::net::proto::database::Condition EQUALS(
     FieldPathType field_path,
@@ -28,8 +33,10 @@ cs::net::proto::database::Condition EQUALS(
             << cond.field_path << "' value='" << value_str
             << "'" << ENDL;
   cond.operator_type = "eq";
-  cond.value.type = "string";
-  cond.value.string_value = value_str;
+  cs::net::proto::database::Value val;
+  val.type = "string";
+  val.string_value = value_str;
+  cond.value = val;
   return cond;
 }
 
@@ -40,8 +47,10 @@ cs::net::proto::database::Condition EQUALS(
   cond.field_path = GetFieldPathOrConvert(
       std::forward<FieldPathType>(field_path));
   cond.operator_type = "eq";
-  cond.value.type = "int";
-  cond.value.int_value = value_int;
+  cs::net::proto::database::Value val;
+  val.type = "int";
+  val.int_value = value_int;
+  cond.value = val;
   return cond;
 }
 
@@ -52,8 +61,10 @@ cs::net::proto::database::Condition EQUALS(
   cond.field_path = GetFieldPathOrConvert(
       std::forward<FieldPathType>(field_path));
   cond.operator_type = "eq";
-  cond.value.type = "bool";
-  cond.value.bool_value = value_bool;
+  cs::net::proto::database::Value val;
+  val.type = "bool";
+  val.bool_value = value_bool;
+  cond.value = val;
   return cond;
 }
 
@@ -65,8 +76,10 @@ cs::net::proto::database::Condition CONTAINS(
   cond.field_path = GetFieldPathOrConvert(
       std::forward<FieldPathType>(field_path));
   cond.operator_type = "contains";
-  cond.value.type = "string";
-  cond.value.string_value = value_str;
+  cs::net::proto::database::Value val_contains;
+  val_contains.type = "string";
+  val_contains.string_value = value_str;
+  cond.value = val_contains;
   return cond;
 }
 
@@ -78,8 +91,10 @@ cs::net::proto::database::Condition NOT_CONTAINS(
   cond.field_path = GetFieldPathOrConvert(
       std::forward<FieldPathType>(field_path));
   cond.operator_type = "not_contains";
-  cond.value.type = "string";
-  cond.value.string_value = value_str;
+  cs::net::proto::database::Value val_not_contains;
+  val_not_contains.type = "string";
+  val_not_contains.string_value = value_str;
+  cond.value = val_not_contains;
   return cond;
 }
 

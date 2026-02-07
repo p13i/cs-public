@@ -5,8 +5,10 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::audio::sinusodal;
 using ::cs::renderer::precision::FloatsNear;
+}  // namespace
 
 TEST(Sinusodal, Zero) {
   EXPECT_TRUE(FloatsNear(sinusodal(440, 0), 0));

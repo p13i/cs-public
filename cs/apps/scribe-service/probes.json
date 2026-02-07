@@ -1,0 +1,30 @@
+{
+  "probes": [
+    {
+      "description": "Health endpoint returns 200",
+      "request": {
+        "method": "GET",
+        "url": "/health/"
+      },
+      "expected_response": { "status": 200 }
+    },
+    {
+      "description": "Upload page returns 200",
+      "request": {
+        "method": "GET",
+        "url": "/"
+      },
+      "expected_response": { "status": 200 }
+    },
+    {
+      "description": "POST upload with audio file returns 302 redirect to job",
+      "request": {
+        "method": "POST",
+        "url": "/upload/",
+        "body_file": "/probe_audio.mp3",
+        "content_type": "audio/mpeg"
+      },
+      "expected_response": { "status": 302 }
+    }
+  ]
+}

@@ -4,15 +4,17 @@ Goal: bump the display `VERSION` in `.env` (semantic triad),
 sync `COMMIT` to the latest HEAD, then commit and tag the
 resulting version.
 
-Invocation: `versionUp(major|minor|patch)` Argument is
-required; abort if missing/invalid.
+Invocation: `versionUp(major|minor|patch)` Default is
+`patch` if no argument is provided. If provided, validate it
+is one of `major`, `minor`, or `patch`; stop otherwise.
 
 Steps:
 
 - Read AGENTS.md and person-specific AGENTS to honor
   guardrails.
-- Validate the argument is one of `major`, `minor`, or
-  `patch`; stop otherwise.
+- Use the argument if provided; otherwise use `patch`.
+  Validate it is one of `major`, `minor`, or `patch`; stop
+  otherwise.
 - Ensure the working tree is clean except for `.env` (or
   note/avoid staging other files).
 - Read `VERSION` from `.env`; accept optional leading `v`
@@ -37,7 +39,7 @@ Helper script (python):
 
 Use this to read, update, and rewrite `.env` in one step.
 Pass the bump type as the first argument
-(`major|minor|patch`).
+(`major|minor|patch`); default is `patch` if omitted.
 
 ```
 BUMP=patch
@@ -47,7 +49,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-bump = sys.argv[1] if len(sys.argv) > 1 else None
+bump = sys.argv[1] if len(sys.argv) > 1 else "patch"
 if bump not in {"major", "minor", "patch"}:
     raise SystemExit("usage: python - <major|minor|patch> <<'PY'")
 

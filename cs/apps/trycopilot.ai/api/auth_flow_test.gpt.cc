@@ -2,14 +2,14 @@
 #include <string>
 
 #include "cs/apps/trycopilot.ai/api/auth.hh"
+#include "cs/apps/trycopilot.ai/api/test_db_store.gpt.hh"
 #include "cs/apps/trycopilot.ai/api/user.hh"
 #include "cs/apps/trycopilot.ai/protos/auth.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/gencode/auth.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/gencode/user.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/user.proto.hh"
 #include "cs/net/proto/db/client.gpt.hh"
-#include "cs/net/proto/db/database_base_url.gpt.hh"
-#include "cs/net/proto/db/in_memory_client.gpt.hh"
+#include "cs/net/proto/db/client_mock.gpt.hh"
 #include "cs/net/proto/db/query_helpers.gpt.hh"
 #include "cs/net/proto/db/query_view.gpt.hh"
 #include "cs/util/di/context.gpt.hh"
@@ -21,6 +21,7 @@ namespace {  // use_usings
 using ::cs::apps::trycopilotai::api::CreateUserRPC;
 using ::cs::apps::trycopilotai::api::LoginRPC;
 using ::cs::apps::trycopilotai::api::LogoutRPC;
+using ::cs::apps::trycopilotai::api::testing::TestDbStore;
 using ::cs::apps::trycopilotai::protos::CreateUserRequest;
 using ::cs::apps::trycopilotai::protos::CreateUserResponse;
 using ::cs::apps::trycopilotai::protos::LoginRequest;
@@ -29,29 +30,48 @@ using ::cs::apps::trycopilotai::protos::LogoutRequest;
 using ::cs::apps::trycopilotai::protos::LogoutResponse;
 using ::cs::apps::trycopilotai::protos::Token;
 using ::cs::apps::trycopilotai::protos::User;
-using ::cs::net::proto::db::DatabaseBaseUrl;
 using ::cs::net::proto::db::EQUALS;
 using ::cs::net::proto::db::IDatabaseClient;
-using ::cs::net::proto::db::InMemoryDatabaseClient;
+using ::cs::net::proto::db::MockDatabaseClient;
 using ::cs::net::proto::db::QueryView;
 using ::cs::util::di::Context;
 using ::cs::util::di::ContextBuilder;
 using ::cs::util::random::uuid::generate_uuid_v4;
+using ::testing::Invoke;
+using ::testing::Return;
 }  // namespace
 
-using AppContext =
-    Context<DatabaseBaseUrl, IDatabaseClient>;
+using AppContext = Context<IDatabaseClient>;
 
 namespace {  // impl
 class AuthFlowTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    app_ctx_ = ContextBuilder<AppContext>()
-                   .bind<DatabaseBaseUrl>()
-                   .with(std::string(""))
-                   .bind<IDatabaseClient>()
-                   .to<InMemoryDatabaseClient>()
-                   .build();
+    db_store_ =
+        std::make_shared<cs::apps::trycopilotai::api::
+                             testing::TestDbStore>();
+    mock_db_ = std::make_shared<MockDatabaseClient>();
+    ON_CALL(*mock_db_, GetBaseUrl())
+        .WillByDefault(Return("mock://"));
+    ON_CALL(*mock_db_, Upsert(::testing::_))
+        .WillByDefault(
+            Invoke([this](const cs::net::proto::database::
+                              UpsertRequest& r) {
+              return cs::apps::trycopilotai::api::testing::
+                  UpsertToStore(r, db_store_.get());
+            }));
+    ON_CALL(*mock_db_, Query(::testing::_))
+        .WillByDefault(
+            Invoke([this](const cs::net::proto::database::
+                              QueryRequest& r) {
+              return cs::apps::trycopilotai::api::testing::
+                  QueryFromStore(r, *db_store_);
+            }));
+    app_ctx_ =
+        ContextBuilder<AppContext>()
+            .bind<IDatabaseClient>()
+            .from([this](AppContext&) { return mock_db_; })
+            .build();
   }
 
   CreateUserRequest BuildCreateUserRequest(
@@ -73,6 +93,8 @@ class AuthFlowTest : public ::testing::Test {
     return req;
   }
 
+  std::shared_ptr<TestDbStore> db_store_;
+  std::shared_ptr<MockDatabaseClient> mock_db_;
   AppContext app_ctx_;
   std::string test_email_ =
       "test_" + generate_uuid_v4() + "@example.com";

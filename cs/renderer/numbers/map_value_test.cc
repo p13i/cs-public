@@ -6,9 +6,11 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::numbers::in_range;
 using ::cs::numbers::map_value;
 using ::cs::renderer::precision::FloatsNear;
+}  // namespace
 
 TEST(MapValueTest, TestInRange) {
   float value = 50.0f;

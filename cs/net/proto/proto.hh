@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "cs/net/json/object.hh"
 #include "cs/result.hh"
 
 // Forward declaration to avoid circular dependency
@@ -44,6 +45,9 @@ class Proto {
   virtual std::string Serialize(
       unsigned int indent = 0) const;
   virtual cs::ResultOr<T> Parse(std::string s);
+  virtual cs::net::json::Object ToObject() const;
+  virtual cs::ResultOr<T> FromObject(
+      cs::net::json::Object obj) const;
   virtual ProtoBuilder<T> Builder();
   virtual cs::net::proto::protos::ProtoMeta Meta() const;
 };

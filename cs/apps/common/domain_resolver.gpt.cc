@@ -12,7 +12,7 @@
 
 namespace cs::apps::common {
 
-namespace {
+namespace {  // use_usings
 using ::cs::Error;
 using ::cs::ResultOr;
 using ::cs::net::http::Request;

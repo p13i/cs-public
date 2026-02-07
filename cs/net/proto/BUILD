@@ -17,3 +17,13 @@ cc_library(
         "//cs/parsers",
     ],
 )
+
+cc_test(
+    name = "validators_test",
+    srcs = ["validators_test.gpt.cc"],
+    deps = [
+        ":validators",
+        "//cs:result",
+        "@googletest//:gtest_main",
+    ],
+)

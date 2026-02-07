@@ -42,8 +42,6 @@ Operational runbook:
      shell loop; each iteration runs the command once.
    - If exit code is 0:
      - Summarize the successful run.
-     - Stage repo changes (`git add -A`) and report
-       `git status -sb`/`git diff --stat` summaries.
      - Stop looping and inform the user.
    - If exit code is non-zero:
      - Diagnose root causes using the inference context and
@@ -61,7 +59,6 @@ Operational runbook:
 
 Reporting expectations:
 
-- Always relay iteration outcomes, what changed, whether
-  changes are staged, and remaining diffs.
+- Always relay iteration outcomes and what changed.
 - If blocked by invalid inputs, state the guard that fired
   and stop without edits.

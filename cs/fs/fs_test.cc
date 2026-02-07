@@ -10,7 +10,12 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::Result;
+using ::cs::fs::Delete;
+using ::cs::fs::IsDir;
+using ::cs::fs::IsFile;
+using ::cs::fs::Join;
 using ::testing::AtLeast;
 using ::testing::Eq;
 using ::testing::FloatEq;
@@ -18,6 +23,7 @@ using ::testing::IsFalse;
 using ::testing::IsTrue;
 using ::testing::Matcher;
 using ::testing::StrEq;
+}  // namespace
 
 namespace {
 std::filesystem::path MakeTempDir() {
@@ -46,7 +52,7 @@ TEST_F(FileSystemTest, WriteAndRead) {
   ASSERT_THAT(contents.value(), StrEq(test_contents));
 }
 
-TEST_F(FileSystemTest, cwd) {
+TEST_F(FileSystemTest, Cwd) {
   auto path = cs::fs::cwd();
   ASSERT_THAT(path.ok(), IsTrue());
   ASSERT_THAT(path.value().size() > 1, IsTrue());
@@ -65,8 +71,7 @@ TEST_F(FileSystemTest, MkdirDirExistsAndIsDir) {
   EXPECT_THAT(second.ok(), IsFalse());
   EXPECT_THAT(cs::fs::dir_exists(dir_path + "/nested"),
               IsTrue());
-  EXPECT_THAT(cs::fs::IsDir(dir_path + "/nested"),
-              IsTrue());
+  EXPECT_THAT(IsDir(dir_path + "/nested"), IsTrue());
   std::filesystem::remove_all(dir);
 }
 
@@ -74,9 +79,9 @@ TEST_F(FileSystemTest, IsFileAndDelete) {
   auto dir = MakeTempDir();
   std::string file_path = (dir / "file.txt").string();
   ASSERT_OK(cs::fs::write(file_path, "content"));
-  EXPECT_THAT(cs::fs::IsFile(file_path), IsTrue());
-  ASSERT_OK(cs::fs::Delete(file_path));
-  auto delete_result = cs::fs::Delete(file_path);
+  EXPECT_THAT(IsFile(file_path), IsTrue());
+  ASSERT_OK(Delete(file_path));
+  auto delete_result = Delete(file_path);
   EXPECT_THAT(delete_result.ok(), IsFalse());
   std::filesystem::remove_all(dir);
 }
@@ -94,7 +99,7 @@ TEST_F(FileSystemTest, ReadAndWriteErrors) {
 }
 
 TEST_F(FileSystemTest, JoinTrimsTrailingSlashes) {
-  auto joined = cs::fs::Join("root/", "path//", "file/");
+  auto joined = Join("root/", "path//", "file/");
   EXPECT_THAT(joined, StrEq("root/path/file"));
 }
 

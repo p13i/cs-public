@@ -17,12 +17,20 @@
 
 namespace cs::net::http {
 
-const std::string kContentTypeTextPlain = "text/plain";
-const std::string kContentTypeTextHtml = "text/html";
-const std::string kContentTypeApplicationJson =
+// constexpr for use as template non-type params (e.g. proto
+// enum_in_ref); implicitly converts to std::string where
+// needed.
+inline constexpr char kContentTypeTextPlain[] =
+    "text/plain";
+inline constexpr char kContentTypeTextHtml[] = "text/html";
+inline constexpr char kContentTypeApplicationJson[] =
     "application/json";
-const std::string kContentTypeXWwwFormUrlEncoded =
+inline constexpr char kContentTypeXWwwFormUrlEncoded[] =
     "application/x-www-form-urlencoded";
+inline constexpr char kContentTypeOctetStream[] =
+    "application/octet-stream";
+inline constexpr char kContentTypeAudioMpeg[] =
+    "audio/mpeg";
 
 class Response {
  public:
@@ -44,6 +52,8 @@ class Response {
     _result = result;
     if (result.ok()) {
       _status = HTTP_200_OK;
+    } else if (cs::Result::IsNotFound(result)) {
+      _status = HTTP_404_NOT_FOUND;
     } else {
       _status = HTTP_400_BAD_REQUEST;
     }

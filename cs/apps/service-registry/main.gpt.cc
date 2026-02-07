@@ -17,7 +17,6 @@
 #include "cs/net/json/object.hh"
 #include "cs/net/json/parsers.hh"
 #include "cs/net/proto/db/client.gpt.hh"
-#include "cs/net/proto/db/database_base_url.gpt.hh"
 #include "cs/net/proto/db/db.hh"
 #include "cs/parsers/arg_parser.gpt.hh"
 #include "cs/result.hh"
@@ -47,7 +46,6 @@ using ::cs::net::http::WebApp;
 using ::cs::net::json::Object;
 using ::cs::net::json::Type;
 using ::cs::net::json::parsers::ParseObject;
-using ::cs::net::proto::db::DatabaseBaseUrl;
 using ::cs::net::proto::db::DatabaseClientImpl;
 using ::cs::net::proto::db::IDatabaseClient;
 using ::cs::parsers::ParseArgs;
@@ -156,16 +154,15 @@ Result RunServiceRegistry(std::vector<std::string> argv) {
   std::string network_name =
       FMT("%s_default", prefix.c_str());
 
-  using AppContext =
-      Context<DatabaseBaseUrl, IDatabaseClient>;
+  static constexpr const char kDatabaseBaseUrl[] =
+      "http://database-service:8080";
+  using AppContext = Context<IDatabaseClient>;
   auto app_ctx =
       ContextBuilder<AppContext>()
-          .bind<DatabaseBaseUrl>()
-          .with(std::string("http://database-service:8080"))
           .bind<IDatabaseClient>()
-          .from([](AppContext& ctx) {
+          .from([](AppContext&) {
             return std::make_shared<DatabaseClientImpl>(
-                ctx.Get<DatabaseBaseUrl>()->value());
+                kDatabaseBaseUrl);
           })
           .build();
 

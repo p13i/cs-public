@@ -1,4 +1,6 @@
 # cs/net/http/BUILD
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
@@ -70,6 +72,15 @@ cc_library(
 )
 
 cc_library(
+    name = "handler",
+    hdrs = ["handler.hh"],
+    deps = [
+        ":request",
+        ":response",
+    ],
+)
+
+cc_library(
     name = "status",
     hdrs = ["status.hh"],
 )
@@ -92,18 +103,90 @@ cc_library(
 
 cc_library(
     name = "favicon",
-    srcs = ["favicon.cc"],
+    srcs = ["favicon.gpt.cc"],
     hdrs = ["favicon.hh"],
 )
 
 cc_library(
     name = "client",
-    srcs = ["client.cc"],
+    srcs = ["client.gpt.cc"],
     hdrs = ["client.hh"],
     visibility = ["//visibility:public"],
     deps = [
         "//cs:result",
         "//cs/net/http:response",
         "@curl",
+    ],
+)
+
+cc_test(
+    name = "parsers_test",
+    srcs = ["parsers_test.gpt.cc"],
+    deps = [
+        ":parsers",
+        "//cs:result",
+        "//cs/testing:extensions",
+        "//cs/util:string",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "request_test",
+    srcs = ["request_test.gpt.cc"],
+    deps = [
+        ":request",
+        "//cs/testing:extensions",
+        "//cs/util:string",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "response_test",
+    srcs = ["response_test.gpt.cc"],
+    deps = [
+        ":response",
+        "//cs:result",
+        "//cs/testing:extensions",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "favicon_test",
+    srcs = ["favicon_test.gpt.cc"],
+    deps = [
+        ":favicon",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "client_test",
+    srcs = ["client_test.gpt.cc"],
+    deps = [
+        ":client",
+        ":request",
+        ":response",
+        ":server",
+        "//cs:result",
+        "//cs/testing:extensions",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "server_test",
+    srcs = ["server_test.gpt.cc"],
+    deps = [
+        ":client",
+        ":request",
+        ":response",
+        ":server",
+        "//cs:result",
+        "//cs/net/html:dom",
+        "//cs/testing:extensions",
+        "@googletest//:gtest_main",
     ],
 )

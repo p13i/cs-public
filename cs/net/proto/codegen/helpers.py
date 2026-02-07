@@ -41,6 +41,8 @@ def extract_Ts(s: str, PROTOS: ProtoDB) -> List[Types]:
         return [s] + extract_Ts(V, PROTOS)
     elif s in (Types.STRING, Types.FLOAT, Types.INT, Types.BOOL):
         return [s]
+    elif s == Types.JSON_OBJECT:
+        return [s]
     elif IsProto(s, PROTOS):
         return [s]
     else:
@@ -112,6 +114,8 @@ def SerializeToKVMap(field: Field, kvmap_name: str, PROTOS: ProtoDB) -> str:
         """
     if What:
         return f'{kvmap_name}["{field.name}"] = Object::New{What}(value.{field.name});'
+    if field.type == Types.JSON_OBJECT:
+        return f'{kvmap_name}["{field.name}"] = value.{field.name};'
     return f'{kvmap_name}["{field.name}"] = {RecursiveDescribeT(field.type, PROTOS)}ToObject(value.{field.name});'
 
 
@@ -130,6 +134,8 @@ def DefaultValue(type_: str, PROTOS: ProtoDB) -> str:
         return "0"
     elif type_ == Types.STRING:
         return '""'
+    elif type_ == Types.JSON_OBJECT:
+        return "Object()"
     return "/* unknown default */"
 
 
@@ -155,6 +161,9 @@ def ParseFromObject(field: Field, obj_name: str, res_name: str, PROTOS: ProtoDB)
     elif IsProto(field.type, PROTOS):
         s += f'SET_OR_RET(Object {field.name}_obj, {obj_name}.get("{field.name}"));\n'
         s += f"SET_OR_RET({res_name}.{field.name}, {field.type}FromObject({field.name}_obj));"
+    elif field.type == Types.JSON_OBJECT:
+        s += f'SET_OR_RET(Object {field.name}_obj, {obj_name}.get("{field.name}"));\n'
+        s += f"    {res_name}.{field.name} = {field.name}_obj;"
     else:
         s += f'SET_OR_RET({res_name}.{field.name}, {obj_name}.get("{field.name}", {field.type}()));'
 
@@ -191,6 +200,8 @@ def RecursiveDescribeT(T: Types, PROTOS: ProtoDB) -> str:
         return "Int"
     elif T == Types.BOOL:
         return "Bool"
+    elif T == Types.JSON_OBJECT:
+        return "JsonObject"
     elif IsProto(T, PROTOS):
         return f"{T}"
     else:

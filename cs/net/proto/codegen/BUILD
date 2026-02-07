@@ -40,6 +40,7 @@ py_test(
         "tests/test_cli_modes.py",
         "tests/test_generation_outputs.py",
         "tests/test_parser_and_validator.py",
+        "tests/test_toobject_fromobject_generation.gpt.py",
     ],
     data = [
         ":codegen",

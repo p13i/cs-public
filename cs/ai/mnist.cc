@@ -17,6 +17,12 @@
 #include "cs/ai/protos/neural_model.proto.hh"
 #include "cs/fs/fs.hh"
 
+namespace {  // use_usings
+using ::cs::ai::NeuralNet;
+using ::cs::ai::protos::MNISTData;
+using ::cs::ai::protos::NeuralModel;
+}  // namespace
+
 // Struct to hold all MNIST datasets
 
 // Helper to read big-endian 32-bit integers
@@ -29,7 +35,7 @@ uint32_t read_be(std::ifstream& f) {
 }
 
 // Main function to download and load MNIST data
-cs::ai::protos::MNISTData download_and_load_mnist() {
+MNISTData download_and_load_mnist() {
   const std::string BASE_URL =
       "https://raw.githubusercontent.com/fgnt/mnist/"
       "master/";
@@ -90,7 +96,7 @@ cs::ai::protos::MNISTData download_and_load_mnist() {
   };
 
   LOG(DEBUG) << "Parsing MNIST files..." << ENDL;
-  cs::ai::protos::MNISTData data;
+  MNISTData data;
   data.train_images =
       load_images("train-images-idx3-ubyte");
   data.train_labels =
@@ -109,7 +115,7 @@ cs::ai::protos::MNISTData download_and_load_mnist() {
   std::vector<decltype(v)::value_type>( \
       v.begin(), v.size() > 3 ? v.begin() + 3 : v.end())
 
-  cs::ai::protos::MNISTData data_view;
+  MNISTData data_view;
   data_view.train_images = VECTOR_SUBSET(data.train_images);
   data_view.train_labels = VECTOR_SUBSET(data.train_labels);
   data_view.test_images = VECTOR_SUBSET(data.test_images);
@@ -152,15 +158,15 @@ int main(int argc, char** argv) {
   std::vector<std::vector<float>> labels =
       one_hot_many(mnist_data.train_labels);
 
-  cs::ai::protos::NeuralModel model;
+  NeuralModel model;
   model.input_size = 784;
   model.hidden_size = 64;
   model.output_size = 10;
   model.epochs = 5;
   model.learning_rate = 0.1;
 
-  cs::ai::NeuralNet net(model.input_size, model.hidden_size,
-                        model.output_size);
+  NeuralNet net(model.input_size, model.hidden_size,
+                model.output_size);
   net.train(images, labels, model.epochs,
             model.learning_rate);
 

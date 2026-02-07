@@ -4,8 +4,12 @@
 #include "cs/q/heap/heap.hh"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
+using ::cs::q::MaxHeap;
+}  // namespace
+
 TEST(MaxHeapTest, PeekEmptyReturnsMin) {
-  cs::q::MaxHeap<int> heap(3);
+  MaxHeap<int> heap(3);
   auto value = heap.Peek();
   EXPECT_EQ(value.second, INT_MIN);
 }

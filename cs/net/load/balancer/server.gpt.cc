@@ -25,7 +25,6 @@
 #include "cs/net/load/balancer/protos/downstream.proto.hh"
 #include "cs/net/load/balancer/proxy_environment.gpt.hh"
 #include "cs/net/proto/db/client.gpt.hh"
-#include "cs/net/proto/db/database_base_url.gpt.hh"
 #include "cs/net/proto/db/query_view.gpt.hh"
 #include "cs/result.hh"
 #include "cs/util/di/context.gpt.hh"
@@ -57,6 +56,7 @@ using ::cs::net::load::balancer::ProxyEnvironment;
 using ::cs::net::load::balancer::protos::Config;
 using ::cs::net::load::balancer::protos::DownstreamClient;
 using ::cs::net::load::balancer::protos::GetLoadResponse;
+using ::cs::net::proto::db::DatabaseClientImpl;
 using ::cs::net::proto::db::IDatabaseClient;
 using ::cs::net::proto::db::QueryView;
 using ::cs::util::EmbeddedFileEntry;
@@ -66,10 +66,8 @@ using ::cs::util::di::ContextBuilder;
 using ::cs::util::string::ToLowercase;
 }  // namespace
 
-using AppContext = ::cs::util::di::Context<
-    ::cs::net::load::balancer::ProxyEnvironment,
-    ::cs::net::proto::db::DatabaseBaseUrl,
-    ::cs::net::proto::db::IDatabaseClient>;
+using AppContext =
+    Context<ProxyEnvironment, IDatabaseClient>;
 
 namespace cs::net::load::balancer {
 
@@ -171,21 +169,14 @@ Response ProxyHandler(Request request, AppContext& ctx) {
 
 Result Server(std::string host, int port,
               std::string environment) {
-  const std::string database_base_url =
-      "http://database-service:8080";
   auto app_ctx =
       ContextBuilder<AppContext>()
           .bind<ProxyEnvironment>()
           .with(environment)
-          .bind<::cs::net::proto::db::DatabaseBaseUrl>()
-          .with(database_base_url)
-          .bind<::cs::net::proto::db::IDatabaseClient>()
-          .from([](AppContext& ctx) {
-            return std::make_shared<
-                ::cs::net::proto::db::DatabaseClientImpl>(
-                ctx.Get<::cs::net::proto::db::
-                            DatabaseBaseUrl>()
-                    ->value());
+          .bind<IDatabaseClient>()
+          .from([](AppContext&) {
+            return std::make_shared<DatabaseClientImpl>(
+                "http://database-service:8080");
           })
           .build();
   auto db = app_ctx.Get<IDatabaseClient>();

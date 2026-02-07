@@ -40,3 +40,12 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "polar2cart_test",
+    srcs = ["polar2cart_test.gpt.cc"],
+    deps = [
+        ":polar2cart",
+        "@googletest//:gtest_main",
+    ],
+)

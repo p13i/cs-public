@@ -8,10 +8,11 @@
 #include <string>
 #include <vector>
 
+namespace {  // use_usings
+using ::cs::q::queue::Queue;
 using ::testing::Eq;
 using ::testing::Optional;
-
-using cs::q::queue::Queue;
+}  // namespace
 
 // Helper struct for custom type testing
 struct Point {

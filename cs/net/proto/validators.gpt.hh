@@ -209,6 +209,94 @@ struct iso8601 {
   }
 };
 
+template <class Field>
+struct uuid {
+  template <class Msg>
+  void operator()(const Msg& msg,
+                  detail::Accum& out) const {
+    const auto& v = msg.*Field::ptr;
+    static const std::regex re(
+        R"(^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$)");
+    if (!std::regex_match(v, re)) {
+      detail::add_error(out, Field::name, "ERR_UUID",
+                        "invalid UUID format");
+    }
+  }
+};
+
+template <class Field>
+struct base64 {
+  template <class Msg>
+  void operator()(const Msg& msg,
+                  detail::Accum& out) const {
+    const auto& v = msg.*Field::ptr;
+    static const std::regex re(R"(^[A-Za-z0-9+/]*={0,2}$)");
+    if (!std::regex_match(v, re)) {
+      detail::add_error(out, Field::name, "ERR_BASE64",
+                        "invalid base64 format");
+    }
+  }
+};
+
+template <class Field>
+struct filename {
+  template <class Msg>
+  void operator()(const Msg& msg,
+                  detail::Accum& out) const {
+    const auto& v = msg.*Field::ptr;
+    if (v.find('/') != std::string::npos ||
+        v.find('\\') != std::string::npos ||
+        v.find('\0') != std::string::npos) {
+      detail::add_error(out, Field::name, "ERR_FILENAME",
+                        "filename must not contain path "
+                        "separators or null");
+      return;
+    }
+    if (v == "." || v == "..") {
+      detail::add_error(out, Field::name, "ERR_FILENAME",
+                        "filename must not be . or ..");
+    }
+  }
+};
+
+template <class Field>
+struct host {
+  template <class Msg>
+  void operator()(const Msg& msg,
+                  detail::Accum& out) const {
+    const auto& v = msg.*Field::ptr;
+    if (v.empty()) {
+      detail::add_error(out, Field::name, "ERR_HOST",
+                        "host must be non-empty");
+      return;
+    }
+    if (v.size() > 253) {
+      detail::add_error(out, Field::name, "ERR_HOST",
+                        "host too long");
+      return;
+    }
+    static const std::regex re(
+        R"(^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$|^\[[0-9a-fA-F:.]+\]$)");
+    if (!std::regex_match(v, re)) {
+      detail::add_error(out, Field::name, "ERR_HOST",
+                        "invalid host format");
+    }
+  }
+};
+
+template <class Field>
+struct port {
+  template <class Msg>
+  constexpr void operator()(const Msg& msg,
+                            detail::Accum& out) const {
+    const auto& v = msg.*Field::ptr;
+    if (v < 1 || v > 65535) {
+      detail::add_error(out, Field::name, "ERR_PORT",
+                        "port must be 1-65535");
+    }
+  }
+};
+
 template <class Field, const char* Token>
 struct custom {
   template <class Msg>

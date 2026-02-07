@@ -32,3 +32,16 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "client_test",
+    srcs = ["client_test.gpt.cc"],
+    deps = [
+        ":rpc",
+        "//cs:result",
+        "//cs/net/http:client",
+        "//cs/net/http:response",
+        "//cs/net/json:serialize",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -12,6 +12,12 @@
 #include "cs/net/json/object.hh"
 #include "cs/net/json/parsers.hh"
 
+namespace {  // use_usings
+using ::cs::Fetch;
+using ::cs::ResultOr;
+using ::cs::net::json::parsers::ParseObject;
+}  // namespace
+
 namespace cs::ai::gpt {
 
 namespace {
@@ -28,11 +34,10 @@ namespace {
     oss.str();                                \
   })
 
-cs::ResultOr<std::vector<std::string>> ExtractTitles(
+ResultOr<std::vector<std::string>> ExtractTitles(
     const std::string& json, unsigned int n) {
   std::vector<std::string> titles;
-  SET_OR_RET(auto obj_or,
-             cs::net::json::parsers::ParseObject(json));
+  SET_OR_RET(auto obj_or, ParseObject(json));
   std::regex re(R"regex("article":"([^"]+)")regex");
   std::smatch m;
   std::string::const_iterator searchStart(json.cbegin());
@@ -64,7 +69,7 @@ std::string StripHTML(const std::string& html) {
 
 }  // namespace
 
-cs::ResultOr<std::vector<std::string>>
+ResultOr<std::vector<std::string>>
 DownloadMostPopularArticles(unsigned int n) {
   LOG(INFO) << "Downloading top " << n
             << " Wikipedia articles" << ENDL;
@@ -80,10 +85,10 @@ DownloadMostPopularArticles(unsigned int n) {
 
   SET_OR_RET(
       auto stats_json_or,
-      cs::Fetch("https://wikimedia.org/api/rest_v1/metrics/"
-                "pageviews/"
-                "top/en.wikipedia/all-access/" +
-                date_ss.str()));
+      Fetch("https://wikimedia.org/api/rest_v1/metrics/"
+            "pageviews/"
+            "top/en.wikipedia/all-access/" +
+            date_ss.str()));
 
   SET_OR_RET(auto titles, ExtractTitles(stats_json_or, n));
   std::vector<std::string> result;
@@ -101,15 +106,14 @@ DownloadMostPopularArticles(unsigned int n) {
         "https://en.wikipedia.org/api/rest_v1/page/"
         "summary/" +
         title;
-    auto json = cs::Fetch(url);
+    auto json = Fetch(url);
     if (!json.ok()) {
       LOG(WARNING) << "Failed to fetch article summary: "
                    << title << ", error " << json << ENDL;
       continue;
     }
 
-    auto parsed =
-        cs::net::json::parsers::ParseObject(json.value());
+    auto parsed = ParseObject(json.value());
     if (!parsed.ok()) {
       LOG(WARNING) << "Failed to parse summary JSON for "
                    << title << ENDL;

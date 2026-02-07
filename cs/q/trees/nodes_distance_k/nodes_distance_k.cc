@@ -8,12 +8,15 @@
 #include "cs/q/queue/queue.hh"
 #include "cs/q/stack/stack.hh"
 
+namespace {  // use_usings
+using ::cs::q::stack::Stack;
+using ::cs::q::trees::Node;
+}  // namespace
+
 #define SET_HAS_KEY(s, k) ((s).find(k) != (s).end())
 #define MAP_HAS_KEY(m, k) ((m).find(k) != (m).end())
 
 namespace {
-using ::cs::q::stack::Stack;
-using ::cs::q::trees::Node;
 
 template <typename T>
 bool CollectPath(Node<T>* node, Node<T>* target,

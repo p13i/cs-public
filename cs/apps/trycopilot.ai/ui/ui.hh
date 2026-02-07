@@ -5,40 +5,33 @@
 #define CS_APPS_TRYCOPILOT_AI_UI_UI_HH
 
 #include "cs/apps/trycopilot.ai/protos/user.proto.hh"
-#include "cs/net/http/request.hh"
-#include "cs/net/http/response.hh"
+#include "cs/net/http/handler.hh"
 #include "cs/net/proto/db/client.gpt.hh"
-#include "cs/net/proto/db/database_base_url.gpt.hh"
 #include "cs/util/di/context.gpt.hh"
 
 using UIContext = ::cs::util::di::Context<
-    ::cs::net::proto::db::DatabaseBaseUrl,
     ::cs::net::proto::db::IDatabaseClient>;
-
-#define DECLARE_HANDLER(_name)   \
-  cs::net::http::Response _name( \
-      cs::net::http::Request request, UIContext& ctx);
 
 namespace cs::apps::trycopilotai::ui {
 
-DECLARE_HANDLER(GetIndexPage);
-DECLARE_HANDLER(GetGame);
-DECLARE_HANDLER(GetHealthPage);
-DECLARE_HANDLER(Render);
-DECLARE_HANDLER(GetRegisterPage);
-DECLARE_HANDLER(PostRegisterPage);
-DECLARE_HANDLER(GetLoginPage);
-DECLARE_HANDLER(PostLoginPage);
-DECLARE_HANDLER(GetLogoutPage);
-DECLARE_HANDLER(PostLogoutPage);
-DECLARE_HANDLER(GetHomePage);
-DECLARE_HANDLER(GetLogsPage);
-DECLARE_HANDLER(GetAppLogsPage);
-DECLARE_HANDLER(GetQuitPage);
-DECLARE_HANDLER(ApiListLogs);
-DECLARE_HANDLER(GetCodePage);
-DECLARE_HANDLER(GetNewWebsite);
-DECLARE_HANDLER(GetAboutPage);
+DECLARE_HANDLER(GetIndexPage, UIContext);
+DECLARE_HANDLER(GetGame, UIContext);
+DECLARE_HANDLER(GetHealthPage, UIContext);
+DECLARE_HANDLER(Render, UIContext);
+DECLARE_HANDLER(GetRegisterPage, UIContext);
+DECLARE_HANDLER(PostRegisterPage, UIContext);
+DECLARE_HANDLER(GetLoginPage, UIContext);
+DECLARE_HANDLER(PostLoginPage, UIContext);
+DECLARE_HANDLER(GetLogoutPage, UIContext);
+DECLARE_HANDLER(PostLogoutPage, UIContext);
+DECLARE_HANDLER(GetHomePage, UIContext);
+DECLARE_HANDLER(GetLogsPage, UIContext);
+DECLARE_HANDLER(GetAppLogsPage, UIContext);
+DECLARE_HANDLER(GetQuitPage, UIContext);
+DECLARE_HANDLER(ApiListLogs, UIContext);
+DECLARE_HANDLER(GetCodePage, UIContext);
+DECLARE_HANDLER(GetNewWebsite, UIContext);
+DECLARE_HANDLER(GetAboutPage, UIContext);
 
 std::string extractAuthToken(const std::string& cookie);
 

@@ -5,10 +5,12 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-using p3 = ::cs::renderer::geo::Point3;
+namespace {  // use_usings
 using ::cs::renderer::geo::dot;
+using ::cs::renderer::geo::Point3;
+}  // namespace
 
 TEST(Dot, Basic) {
-  EXPECT_EQ(dot(p3(1, 2, 3), p3(4, 5, 6)),
+  EXPECT_EQ(dot(Point3(1, 2, 3), Point3(4, 5, 6)),
             1 * 4 + 2 * 5 + 3 * 6);
 }

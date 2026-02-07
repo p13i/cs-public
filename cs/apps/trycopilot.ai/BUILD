@@ -42,6 +42,15 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "fps_counter_test",
+    srcs = ["fps_counter_test.gpt.cc"],
+    deps = [
+        ":fps_counter",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_binary(
     name = "index",
     srcs = ["index.cc"],
@@ -122,7 +131,6 @@ cc_binary(
         "//cs/net/json:serialize",
         "//cs/net/proto/db",
         "//cs/net/proto/db:client",
-        "//cs/net/proto/db:database_base_url",
         "//cs/net/rpc",
         "//cs/parsers:arg_parser",
         "//cs/renderer:film",

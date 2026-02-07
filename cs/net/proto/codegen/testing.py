@@ -39,6 +39,8 @@ def ValidJsonValue(t: Union[Types], PROTOS: ProtoDB) -> Union[str, int, float]:
         assert isinstance(value_json, str), f"Expected string, got {type(value_json)}"
         map_obj = {"key1": json.loads(value_json)}
         return json.dumps(map_obj, indent=4)
+    elif t == Types.JSON_OBJECT:
+        return "null"
     elif t in PROTOS:
         proto = PROTOS[t]
         obj = {
@@ -71,6 +73,8 @@ def ValidCcTestMatcherValue(t: Types, PROTOS: ProtoDB) -> str:
         value_val = ValidCcTestMatcherValue(value_type, PROTOS)
         value_type_fqn = FullyQualifiedType(value_type, PROTOS)
         return f'std::map<std::string, {value_type_fqn}>{{{{"key1", {value_val}}}}}'
+    elif t == Types.JSON_OBJECT:
+        return "cs::net::json::Object()"
     elif IsProto(t, PROTOS):
         proto = PROTOS[t]
         builder = f"{proto.namespace + '::' + cc_namespace(proto.filename, gen=True)}::{proto.name}BuilderImpl()"
@@ -131,6 +135,8 @@ def TestMatcher(field: Field, PROTOS: ProtoDB) -> str:
     elif field.type.startswith(Types.MAP):
         value_type = extract_T(field.type, PROTOS)
         return f"{RecursiveDescribeT(value_type, PROTOS)}sMapEq"
+    elif field.type == Types.JSON_OBJECT:
+        return "ObjectStrEq"
     elif IsProto(field.type, PROTOS):
         return f"{field.type}Eq"
     else:

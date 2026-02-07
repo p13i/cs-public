@@ -4,10 +4,14 @@
 
 #include "cs/net/json/json_dsl.gpt.hh"
 
-using cs::net::json::dsl::Case;
-using cs::net::json::dsl::CaseRegistrar;
-using cs::net::json::dsl::Registry;
-using cs::net::json::dsl::RunAll;
+namespace {  // use_usings
+using ::cs::net::json::Object;
+using ::cs::net::json::dsl::AsNumber;
+using ::cs::net::json::dsl::Case;
+using ::cs::net::json::dsl::CaseRegistrar;
+using ::cs::net::json::dsl::Registry;
+using ::cs::net::json::dsl::RunAll;
+}  // namespace
 
 // Focused scalar sanity checks (no nulls because parser
 // lacks them).
@@ -158,8 +162,7 @@ JSON_FAIL_XFAIL(UNEXPECTED_SUCCESS, "true",
 
 [[maybe_unused]]
 static const bool kCoverAsNumberNonNumeric = []() {
-  auto value =
-      cs::net::json::dsl::AsNumber(J_STR("not-a-number"));
+  auto value = AsNumber(J_STR("not-a-number"));
   (void)value;
   return true;
 }();

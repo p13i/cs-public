@@ -9,3 +9,12 @@ cc_library(
     hdrs = ["dsl.hh"],
     deps = ["//cs/net/html:dom"],
 )
+
+cc_library(
+    name = "proto_form",
+    hdrs = ["proto_form.gpt.hh"],
+    deps = [
+        "//cs/net/html:dom",
+        "//cs/net/proto/form:proto_form",
+    ],
+)

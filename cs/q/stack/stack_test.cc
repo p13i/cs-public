@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 namespace {  // use_usings
+using ::cs::q::stack::Stack;
 using ::testing::AtLeast;
 using ::testing::Eq;
 using ::testing::FieldsAre;
@@ -18,10 +19,9 @@ using ::testing::IsFalse;
 using ::testing::IsTrue;
 using ::testing::Matcher;
 using ::testing::Not;
+using ::testing::Optional;
 using ::testing::StrEq;
 }  // namespace
-
-namespace {}  // namespace
 
 #include <memory>
 #include <optional>
@@ -30,10 +30,6 @@ namespace {}  // namespace
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "stack.hh"  // your Stack<T> interface
-
-using cs::q::stack::Stack;
-using ::testing::Eq;
-using ::testing::Optional;
 
 // ---------- Basic behavior ----------
 TEST(StackTest, NewlyCreatedStackIsEmpty) {

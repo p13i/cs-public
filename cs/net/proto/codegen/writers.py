@@ -6,21 +6,24 @@ from os.path import dirname, basename, join
 from typing import List, Dict
 from pathlib import Path
 
-from cs.net.proto.codegen.codegen_types import Proto, ValidationAttr
+from cs.net.proto.codegen.codegen_types import Proto, ValidationAttr, Types
 from cs.net.proto.codegen.helpers import cc_namespace, strip_bazel_out_paths
 from cs.net.proto.codegen.constants import NEWLINE, BACKSLASH
 from cs.net.proto.codegen.generators import (
     GenerateBuilderDeclaration,
-    GenerateProtoImplClassDeclaration,
-    GeneratedDeclarations,
-    GenerateProtoImplClassDefinition,
     GenerateBuilderDefinition,
-    GenerateMetaImplementation,
-    GeneratedDefinitions,
-    GenerateMatchersAndProtoTests,
+    GenerateFieldPathBuilderSupport,
     GenerateGetFieldPathExplicitInstantiations,
     GenerateGetFieldPathSpecialization,
-    GenerateFieldPathBuilderSupport,
+    GenerateMetaImplementation,
+    GenerateOperatorEqualsDeclaration,
+    GenerateOperatorEqualsDefinition,
+    GenerateProtoImplClassDeclaration,
+    GenerateProtoImplClassDefinition,
+    GeneratedDeclarations,
+    GeneratedDefinitions,
+    GenerateMatchersAndProtoTests,
+    GenerateToObjectFromObjectTests,
 )
 
 
@@ -107,6 +110,11 @@ namespace {ns} {{
     GenerateFieldPathBuilderSupport(struct, PROTOS)
     for _, struct in PROTOS.items()
     if GenerateFieldPathBuilderSupport(struct, PROTOS)
+])}
+
+{NEWLINE.join([
+    GenerateOperatorEqualsDeclaration(struct)
+    for _, struct in PROTOS.items()
 ])}
 
 #endif  // {header_guard}
@@ -201,9 +209,32 @@ using ::cs::ResultOr;
     GenerateMetaImplementation(struct, PROTOS)
     for _, struct in PROTOS.items()
 ])}
+
+{NEWLINE.join([
+    GenerateOperatorEqualsDefinition(struct, PROTOS)
+    for _, struct in PROTOS.items()
+])}
 {explicit_inst_block}
 """
         )
+
+
+def _object_str_eq_helper(PROTOS: Dict[str, Proto]) -> str:
+    """Emit ObjectStrEq matcher helper if any proto has a JSON_OBJECT field."""
+    has_json_object = any(
+        field.type == Types.JSON_OBJECT
+        for proto in PROTOS.values()
+        for field in proto.fields
+    )
+    if not has_json_object:
+        return ""
+    return """
+inline auto ObjectStrEq(const cs::net::json::Object& exp) {
+  return ::testing::ResultOf(
+      [](const cs::net::json::Object& o) { return o.str(); },
+      ::testing::StrEq(exp.str()));
+}
+"""
 
 
 def WriteGeneratedTestFile(
@@ -248,6 +279,8 @@ namespace {{
 }}
 using namespace testing;
 
+{_object_str_eq_helper(PROTOS)}
+
 template <typename InnerMatcher>
 class AllElementsAreWithIndexMatcher {{
 public:
@@ -285,6 +318,11 @@ class Generated : public ::testing::Test {{}};
     GenerateMatchersAndProtoTests(proto, PROTOS, previous_definitions)
     for _, proto in PROTOS.items()
 ])}
+
+{NEWLINE.join([
+    GenerateToObjectFromObjectTests(proto, PROTOS)
+    for _, proto in PROTOS.items()
+])}
 """
         )
 
@@ -315,6 +353,11 @@ def _render_validator(
             [f"k{proto.name}_{field.name}_enum_{idx}" for idx in range(len(attr.args))]
         )
         return f"::cs::net::proto::validation::enum_in<{field_expr}, {enum_refs}>"
+    if attr.name == "enum_in_ref":
+        if not attr.args:
+            raise ValueError("enum_in_ref requires at least one allowed value")
+        enum_refs = ", ".join(attr.args)
+        return f"::cs::net::proto::validation::enum_in<{field_expr}, {enum_refs}>"
     if attr.name == "matches":
         if not attr.args:
             raise ValueError("matches requires a pattern argument")
@@ -322,6 +365,16 @@ def _render_validator(
         return f"::cs::net::proto::validation::matches<{field_expr}, {pat_const}>"
     if attr.name == "iso8601":
         return f"::cs::net::proto::validation::iso8601<{field_expr}>"
+    if attr.name == "uuid":
+        return f"::cs::net::proto::validation::uuid<{field_expr}>"
+    if attr.name == "base64":
+        return f"::cs::net::proto::validation::base64<{field_expr}>"
+    if attr.name == "filename":
+        return f"::cs::net::proto::validation::filename<{field_expr}>"
+    if attr.name == "host":
+        return f"::cs::net::proto::validation::host<{field_expr}>"
+    if attr.name == "port":
+        return f"::cs::net::proto::validation::port<{field_expr}>"
     if attr.name == "oneof_set":
         return f"::cs::net::proto::validation::oneof_set<{field_expr}>"
     if attr.name == "custom":
@@ -391,6 +444,8 @@ using namespace ::cs::net::proto::validation;
                             extra_consts.append(
                                 f"inline constexpr char {enum_name}[] = {arg};"
                             )
+                    # enum_in_ref: no extra_consts; refs are external (e.g.
+                    # ::cs::net::http::kContentType*).
                     validators.append(_render_validator(attr, proto, field))
             # emit extra consts (patterns/tokens)
             for line in extra_consts:

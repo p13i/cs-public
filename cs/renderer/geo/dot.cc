@@ -5,16 +5,18 @@
 #include "cs/renderer/geo/vector3.h"
 #include "cs/renderer/math/constants.h"
 
-using p3 = ::cs::renderer::geo::Point3;
-using v3 = ::cs::renderer::geo::Vector3;
+namespace {  // use_usings
+using ::cs::renderer::geo::Point3;
+using ::cs::renderer::geo::Vector3;
+}  // namespace
 
 namespace cs::renderer::geo {
 // Performs a standard dot product.
-float dot(const p3& a, const p3& b) {
+float dot(const Point3& a, const Point3& b) {
   return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-float dot(const v3& a, const v3& b) {
+float dot(const Vector3& a, const Vector3& b) {
   return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 }  // namespace cs::renderer::geo

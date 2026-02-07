@@ -10,17 +10,20 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::apps::service_registry::protos::
     DockerContainerInfo;
 using ::cs::apps::service_registry::protos::
     DockerNetworkInspectElement;
 using ::cs::apps::service_registry::protos::ServiceEntry;
 using ::cs::apps::service_registry::protos::ServiceRegistry;
+using ::cs::net::json::Object;
 using ::cs::net::json::parsers::ParseObject;
 using ::testing::Eq;
 using ::testing::IsFalse;
 using ::testing::IsTrue;
 using ::testing::StrEq;
+}  // namespace
 
 namespace {
 
@@ -171,13 +174,12 @@ TEST_F(Services2JsonTest, ParseServicesJsonArray) {
   auto parsed = ParseObject(kServices2Json);
   ASSERT_THAT(parsed.ok(), IsTrue()) << parsed.message();
 
-  auto array = parsed.value().as(
-      std::vector<cs::net::json::Object>());
+  auto array = parsed.value().as(std::vector<Object>());
   ASSERT_THAT(array.size(), Eq(1))
       << "Expected array with one network element";
 
-  auto network_obj = array[0].as(
-      std::map<std::string, cs::net::json::Object>());
+  auto network_obj =
+      array[0].as(std::map<std::string, Object>());
   ASSERT_THAT(
       network_obj.find("Containers") != network_obj.end(),
       IsTrue())
@@ -190,10 +192,9 @@ TEST_F(Services2JsonTest,
   auto parsed = ParseObject(kServices2Json);
   ASSERT_THAT(parsed.ok(), IsTrue());
 
-  auto array = parsed.value().as(
-      std::vector<cs::net::json::Object>());
-  auto network_obj = array[0].as(
-      std::map<std::string, cs::net::json::Object>());
+  auto array = parsed.value().as(std::vector<Object>());
+  auto network_obj =
+      array[0].as(std::map<std::string, Object>());
 
   // Extract just the Containers field as JSON string
   auto containers_obj = network_obj["Containers"];
@@ -237,10 +238,9 @@ TEST_F(Services2JsonTest,
   auto parsed = ParseObject(kServices2Json);
   ASSERT_THAT(parsed.ok(), IsTrue());
 
-  auto array = parsed.value().as(
-      std::vector<cs::net::json::Object>());
-  auto network_obj = array[0].as(
-      std::map<std::string, cs::net::json::Object>());
+  auto array = parsed.value().as(std::vector<Object>());
+  auto network_obj =
+      array[0].as(std::map<std::string, Object>());
   auto containers_obj = network_obj["Containers"];
   std::string containers_json = containers_obj.str();
   std::string network_json =
@@ -422,10 +422,9 @@ TEST_F(Services2JsonTest,
   auto parsed = ParseObject(kServices2Json);
   ASSERT_THAT(parsed.ok(), IsTrue());
 
-  auto array = parsed.value().as(
-      std::vector<cs::net::json::Object>());
-  auto network_obj = array[0].as(
-      std::map<std::string, cs::net::json::Object>());
+  auto array = parsed.value().as(std::vector<Object>());
+  auto network_obj =
+      array[0].as(std::map<std::string, Object>());
   auto containers_obj = network_obj["Containers"];
   std::string containers_json = containers_obj.str();
   std::string network_json =
@@ -484,26 +483,25 @@ TEST_F(Services2JsonTest,
   auto parsed = ParseObject(kServices2Json);
   ASSERT_THAT(parsed.ok(), IsTrue());
 
-  auto array = parsed.value().as(
-      std::vector<cs::net::json::Object>());
-  auto network_obj = array[0].as(
-      std::map<std::string, cs::net::json::Object>());
+  auto array = parsed.value().as(std::vector<Object>());
+  auto network_obj =
+      array[0].as(std::map<std::string, Object>());
   auto containers_result = network_obj.find("Containers");
   ASSERT_THAT(containers_result != network_obj.end(),
               IsTrue());
   auto containers_obj = containers_result->second;
 
   // Extract containers as JSON map
-  auto containers_map = containers_obj.as(
-      std::map<std::string, cs::net::json::Object>());
+  auto containers_map =
+      containers_obj.as(std::map<std::string, Object>());
 
   // Build expected container data directly from JSON Object
   std::map<std::string, std::pair<std::string, std::string>>
       expected_containers;
   for (const auto& [container_id, container_obj] :
        containers_map) {
-    auto container_data = container_obj.as(
-        std::map<std::string, cs::net::json::Object>());
+    auto container_data =
+        container_obj.as(std::map<std::string, Object>());
     auto name_result = container_obj.get("Name");
     ASSERT_THAT(name_result.ok(), IsTrue())
         << "Failed to get Name for container "
@@ -571,12 +569,11 @@ TEST_F(Services2JsonTest, ExhaustiveJsonTreeCrawl) {
   auto parsed = ParseObject(kServices2Json);
   ASSERT_THAT(parsed.ok(), IsTrue());
 
-  auto array = parsed.value().as(
-      std::vector<cs::net::json::Object>());
+  auto array = parsed.value().as(std::vector<Object>());
   ASSERT_THAT(array.size(), Eq(1));
 
-  auto network_obj = array[0].as(
-      std::map<std::string, cs::net::json::Object>());
+  auto network_obj =
+      array[0].as(std::map<std::string, Object>());
 
   // Verify network-level fields exist
   ASSERT_THAT(network_obj.find("Name") != network_obj.end(),
@@ -592,16 +589,16 @@ TEST_F(Services2JsonTest, ExhaustiveJsonTreeCrawl) {
 
   // Exhaustively crawl all containers
   auto containers_obj = network_obj["Containers"];
-  auto containers_map = containers_obj.as(
-      std::map<std::string, cs::net::json::Object>());
+  auto containers_map =
+      containers_obj.as(std::map<std::string, Object>());
 
   ASSERT_THAT(containers_map.size(), Eq(12));
 
   // Verify every container has all required fields
   for (const auto& [container_id, container_obj] :
        containers_map) {
-    auto container_data = container_obj.as(
-        std::map<std::string, cs::net::json::Object>());
+    auto container_data =
+        container_obj.as(std::map<std::string, Object>());
 
     // Verify all expected fields are present
     ASSERT_THAT(
@@ -643,10 +640,9 @@ TEST_F(Services2JsonTest,
   auto parsed = ParseObject(kServices2Json);
   ASSERT_THAT(parsed.ok(), IsTrue());
 
-  auto array = parsed.value().as(
-      std::vector<cs::net::json::Object>());
-  auto network_obj = array[0].as(
-      std::map<std::string, cs::net::json::Object>());
+  auto array = parsed.value().as(std::vector<Object>());
+  auto network_obj =
+      array[0].as(std::map<std::string, Object>());
   auto containers_obj = network_obj["Containers"];
   std::string containers_json = containers_obj.str();
   std::string network_json =

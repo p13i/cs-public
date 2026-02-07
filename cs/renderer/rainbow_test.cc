@@ -4,9 +4,11 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::renderer::Film;
 using ::cs::renderer::Pixel;
 using ::cs::renderer::RainbowRenderer;
+}  // namespace
 
 TEST(RainbowRenderer, 1x1) {
   Film film(1, 1);

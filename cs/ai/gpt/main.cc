@@ -91,6 +91,13 @@
 #include "cs/parsers/arg_parser.gpt.hh"
 #include "cs/result.hh"
 
+namespace {  // use_usings
+using ::cs::Result;
+using ::cs::ai::gpt::DownloadMostPopularArticles;
+using ::cs::ai::gpt::protos::Config;
+using ::cs::parsers::ParseArgs;
+}  // namespace
+
 // =============================== Config
 // =====================================
 
@@ -139,11 +146,8 @@ std::string GptEvaluate(std::string userInput);
 // ============================= App Harness
 // ==================================
 
-cs::Result GptApp(std::vector<std::string> argv) {
-  SET_OR_RET(
-      auto config,
-      cs::parsers::ParseArgs<cs::ai::gpt::protos::Config>(
-          argv));
+Result GptApp(std::vector<std::string> argv) {
+  SET_OR_RET(auto config, ParseArgs<Config>(argv));
   if (config.train) {
     g_force_retrain = true;
   }
@@ -289,9 +293,8 @@ std::string StripHtmlToText(const std::string& html) {
 
 std::string FetchPopularWikipediaText(size_t target_count,
                                       size_t min_success) {
-  auto articles_or =
-      cs::ai::gpt::DownloadMostPopularArticles(
-          static_cast<unsigned int>(target_count));
+  auto articles_or = DownloadMostPopularArticles(
+      static_cast<unsigned int>(target_count));
   if (!articles_or.ok()) {
     Warn("Failed to fetch popular Wikipedia articles: " +
          articles_or.message());
@@ -1077,8 +1080,8 @@ bool EnsureModelReadyImpl() {
   return true;
 }
 
-cs::Result TrainPopularWikipediaModelImpl(
-    size_t target_count, size_t min_success) {
+Result TrainPopularWikipediaModelImpl(size_t target_count,
+                                      size_t min_success) {
   g_force_retrain = true;
   NGramLM& M = GlobalModel();
 
@@ -1122,8 +1125,8 @@ cs::Result TrainPopularWikipediaModelImpl(
 
 bool EnsureModelReady() { return EnsureModelReadyImpl(); }
 
-cs::Result TrainPopularWikipediaModel(size_t target_count,
-                                      size_t min_success) {
+Result TrainPopularWikipediaModel(size_t target_count,
+                                  size_t min_success) {
   return TrainPopularWikipediaModelImpl(target_count,
                                         min_success);
 }

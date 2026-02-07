@@ -6,6 +6,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::Result;
 using ::cs::net::json::Object;
 using ::cs::net::json::Type;
@@ -15,6 +16,7 @@ using ::testing::IsFalse;
 using ::testing::IsTrue;
 using ::testing::Matcher;
 using ::testing::StrEq;
+}  // namespace
 
 TEST(ObjectTest, AsFallbacks) {
   Object obj_int(123);

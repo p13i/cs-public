@@ -59,7 +59,6 @@
 #include "cs/net/json/parsers.hh"
 #include "cs/net/json/serialize.hh"
 #include "cs/net/proto/db/client.gpt.hh"
-#include "cs/net/proto/db/database_base_url.gpt.hh"
 #include "cs/net/proto/db/db.hh"
 #include "cs/net/rpc/rpc.hh"
 #include "cs/parsers/arg_parser.gpt.hh"
@@ -115,9 +114,9 @@ using ::cs::apps::trycopilotai::ui::PostLogoutPage;
 using ::cs::apps::trycopilotai::ui::PostRegisterPage;
 using ::cs::apps::trycopilotai::ui::Render;
 using ::cs::net::http::GenerateWhiteIco;
-using ::cs::net::http::Http301MovedPermanently;
 using ::cs::net::http::HTTP_200_OK;
 using ::cs::net::http::HTTP_201_CREATED;
+using ::cs::net::http::HTTP_301_MOVED_PERMANENTLY;
 using ::cs::net::http::HTTP_302_FOUND;
 using ::cs::net::http::HTTP_400_BAD_REQUEST;
 using ::cs::net::http::HTTP_403_PERMISSION_DENIED;
@@ -132,7 +131,6 @@ using ::cs::net::json::Object;
 using ::cs::net::json::SerializeObjectPrettyPrintRecurse;
 using ::cs::net::json::parsers::ParseNumber;
 using ::cs::net::json::parsers::ParseObject;
-using ::cs::net::proto::db::DatabaseBaseUrl;
 using ::cs::net::proto::db::DatabaseClientImpl;
 using ::cs::net::proto::db::IDatabaseClient;
 using ::cs::net::proto::db::LocalJsonDatabase;
@@ -144,13 +142,12 @@ using ::cs::renderer::Film;
 using ::cs::renderer::Pixel;
 using ::cs::util::EmbeddedFileEntry;
 using ::cs::util::FindEmbedded;
+using ::cs::util::di::Context;
 using ::cs::util::di::ContextBuilder;
 using ::cs::util::random::uuid::generate_uuid_v4;
 }  // namespace
 
-using AppContext = ::cs::util::di::Context<
-    ::cs::net::proto::db::DatabaseBaseUrl,
-    ::cs::net::proto::db::IDatabaseClient>;
+using AppContext = Context<IDatabaseClient>;
 using UtilContext = ::cs::util::Context;
 
 namespace db {
@@ -285,17 +282,13 @@ Result RunMyWebApp(std::vector<std::string> argv) {
   UtilContext::Write("VERSION", config.version);
   UtilContext::Write("COMMIT", config.commit);
 
-  using AppContext =
-      ::cs::util::di::Context<DatabaseBaseUrl,
-                              IDatabaseClient>;
+  using AppContext = Context<IDatabaseClient>;
   auto app_ctx =
       ::ContextBuilder<AppContext>()
-          .bind<DatabaseBaseUrl>()
-          .with(std::string("http://database-service:8080"))
           .bind<IDatabaseClient>()
-          .from([](AppContext& ctx) {
+          .from([](AppContext&) {
             return std::make_shared<DatabaseClientImpl>(
-                ctx.Get<DatabaseBaseUrl>()->value());
+                "http://database-service:8080");
           })
           .build();
   WebApp<AppContext> app(app_ctx);

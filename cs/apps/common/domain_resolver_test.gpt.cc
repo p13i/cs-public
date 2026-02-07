@@ -8,12 +8,15 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::net::load::balancer::protos::Config;
 using ::cs::util::EmbeddedFileEntry;
 using ::cs::util::FindEmbedded;
 using ::testing::Eq;
+using ::testing::Ge;
 using ::testing::IsTrue;
 using ::testing::StrEq;
+}  // namespace
 
 namespace cs::apps::common {
 namespace {
@@ -32,22 +35,36 @@ TEST(DomainResolverTest,
       << config_or.message();
   const Config& config = config_or.value();
 
-  ASSERT_THAT(config.prod.routes.size(), Eq(3));
+  ASSERT_THAT(config.prod.routes.size(), Ge(5))
+      << "prod routes must include www, code, data, cite, "
+         "scribe";
   ASSERT_THAT(config.prod.routes.at("www.trycopilot.ai"),
               StrEq("www-trycopilot-ai"));
   ASSERT_THAT(config.prod.routes.at("code.trycopilot.ai"),
               StrEq("code-viewer"));
+  ASSERT_THAT(config.prod.routes.at("data.trycopilot.ai"),
+              StrEq("data-viewer"));
   ASSERT_THAT(config.prod.routes.at("www.cite.pub"),
               StrEq("www-cite-pub"));
+  ASSERT_THAT(config.prod.routes.at("scribe.trycopilot.ai"),
+              StrEq("scribe-service"));
 
-  ASSERT_THAT(config.dev.routes.size(), Eq(3));
+  ASSERT_THAT(config.dev.routes.size(), Ge(5))
+      << "dev routes must include dev.www, dev.code, "
+         "dev.data, dev.cite, dev.scribe";
   ASSERT_THAT(config.dev.routes.at("dev.www.trycopilot.ai"),
               StrEq("www-trycopilot-ai"));
   ASSERT_THAT(
       config.dev.routes.at("dev.code.trycopilot.ai"),
       StrEq("code-viewer"));
+  ASSERT_THAT(
+      config.dev.routes.at("dev.data.trycopilot.ai"),
+      StrEq("data-viewer"));
   ASSERT_THAT(config.dev.routes.at("dev.www.cite.pub"),
               StrEq("www-cite-pub"));
+  ASSERT_THAT(
+      config.dev.routes.at("dev.scribe.trycopilot.ai"),
+      StrEq("scribe-service"));
 }
 
 }  // namespace

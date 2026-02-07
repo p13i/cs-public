@@ -3,6 +3,7 @@
 #include <string>
 
 #include "cs/apps/trycopilot.ai/api/auth.hh"
+#include "cs/apps/trycopilot.ai/api/test_db_store.gpt.hh"
 #include "cs/apps/trycopilot.ai/api/user.hh"
 #include "cs/apps/trycopilot.ai/protos/auth.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/user.proto.hh"
@@ -11,8 +12,7 @@
 #include "cs/net/http/response.hh"
 #include "cs/net/http/status.hh"
 #include "cs/net/proto/db/client.gpt.hh"
-#include "cs/net/proto/db/database_base_url.gpt.hh"
-#include "cs/net/proto/db/in_memory_client.gpt.hh"
+#include "cs/net/proto/db/client_mock.gpt.hh"
 #include "cs/net/proto/db/query_view.gpt.hh"
 #include "cs/util/di/context.gpt.hh"
 #include "cs/util/uuid.hh"
@@ -21,25 +21,29 @@
 
 namespace {  // use_usings
 using ::cs::apps::trycopilotai::api::CreateUserRPC;
+using ::cs::apps::trycopilotai::api::testing::TestDbStore;
 using ::cs::apps::trycopilotai::protos::CreateUserRequest;
 using ::cs::apps::trycopilotai::protos::CreateUserResponse;
+using ::cs::apps::trycopilotai::ui::GetAuthenticatedUser;
 using ::cs::apps::trycopilotai::ui::GetHomePage;
 using ::cs::apps::trycopilotai::ui::GetIndexPage;
+using ::cs::apps::trycopilotai::ui::GetToken;
 using ::cs::apps::trycopilotai::ui::PostLoginPage;
 using ::cs::apps::trycopilotai::ui::PostLogoutPage;
 using ::cs::apps::trycopilotai::ui::PostRegisterPage;
 using ::cs::net::http::kContentTypeXWwwFormUrlEncoded;
 using ::cs::net::http::Request;
-using ::cs::net::proto::db::DatabaseBaseUrl;
 using ::cs::net::proto::db::IDatabaseClient;
-using ::cs::net::proto::db::InMemoryDatabaseClient;
+using ::cs::net::proto::db::MockDatabaseClient;
 using ::cs::util::di::Context;
 using ::cs::util::di::ContextBuilder;
 using ::cs::util::random::uuid::generate_uuid_v4;
+using ::testing::HasSubstr;
+using ::testing::Invoke;
+using ::testing::Return;
 }  // namespace
 
-using AppContext =
-    Context<DatabaseBaseUrl, IDatabaseClient>;
+using AppContext = Context<IDatabaseClient>;
 
 namespace {  // impl
 
@@ -74,12 +78,31 @@ std::string ExtractAuthTokenFromSetCookie(
 class LoginIntegrationTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    app_ctx_ = ContextBuilder<AppContext>()
-                   .bind<DatabaseBaseUrl>()
-                   .with(std::string(""))
-                   .bind<IDatabaseClient>()
-                   .to<InMemoryDatabaseClient>()
-                   .build();
+    db_store_ =
+        std::make_shared<cs::apps::trycopilotai::api::
+                             testing::TestDbStore>();
+    mock_db_ = std::make_shared<MockDatabaseClient>();
+    ON_CALL(*mock_db_, GetBaseUrl())
+        .WillByDefault(Return("mock://"));
+    ON_CALL(*mock_db_, Upsert(::testing::_))
+        .WillByDefault(
+            Invoke([this](const cs::net::proto::database::
+                              UpsertRequest& r) {
+              return cs::apps::trycopilotai::api::testing::
+                  UpsertToStore(r, db_store_.get());
+            }));
+    ON_CALL(*mock_db_, Query(::testing::_))
+        .WillByDefault(
+            Invoke([this](const cs::net::proto::database::
+                              QueryRequest& r) {
+              return cs::apps::trycopilotai::api::testing::
+                  QueryFromStore(r, *db_store_);
+            }));
+    app_ctx_ =
+        ContextBuilder<AppContext>()
+            .bind<IDatabaseClient>()
+            .from([this](AppContext&) { return mock_db_; })
+            .build();
   }
 
   void CreateTestUser(const std::string& email,
@@ -146,6 +169,8 @@ class LoginIntegrationTest : public ::testing::Test {
     return req;
   }
 
+  std::shared_ptr<TestDbStore> db_store_;
+  std::shared_ptr<MockDatabaseClient> mock_db_;
   AppContext app_ctx_;
   std::string test_email_ =
       "test_" + generate_uuid_v4() + "@example.com";
@@ -169,8 +194,7 @@ TEST_F(LoginIntegrationTest,
   EXPECT_EQ(response._status.code, 400u)
       << "Expected 400 BAD REQUEST for empty form, got "
       << response._status.code;
-  EXPECT_THAT(response.body(),
-              ::testing::HasSubstr("required"));
+  EXPECT_THAT(response.body(), HasSubstr("required"));
 }
 
 TEST_F(
@@ -188,7 +212,7 @@ TEST_F(
   ASSERT_TRUE(response._headers.count("Set-Cookie") > 0)
       << "Expected Set-Cookie header in login response";
   EXPECT_THAT(response._headers.at("Set-Cookie"),
-              ::testing::HasSubstr("auth_token="));
+              HasSubstr("auth_token="));
   EXPECT_EQ(response._headers["Location"], "/home/");
 }
 
@@ -196,8 +220,7 @@ TEST_F(LoginIntegrationTest, GetTokenFindsCookieInRequest) {
   Request req = MakeGetRequest("/home/", "test-token-uuid");
   ASSERT_GT(req._headers.count("Cookie"), 0u);
 
-  auto token_or =
-      ::cs::apps::trycopilotai::ui::GetToken(req);
+  auto token_or = GetToken(req);
   ASSERT_TRUE(token_or.ok())
       << "GetToken should find Cookie: "
       << token_or.message();
@@ -220,9 +243,7 @@ TEST_F(LoginIntegrationTest,
   auto home_req = MakeGetRequest("/home/", token);
   ASSERT_GT(home_req._headers.count("Cookie"), 0u);
 
-  auto user_or =
-      ::cs::apps::trycopilotai::ui::GetAuthenticatedUser(
-          home_req, app_ctx_);
+  auto user_or = GetAuthenticatedUser(home_req, app_ctx_);
   ASSERT_TRUE(user_or.ok())
       << "GetAuthenticatedUser should succeed with cookie: "
       << user_or.message();
@@ -287,8 +308,7 @@ TEST_F(LoginIntegrationTest, LoginFlowFullRoundtrip) {
   auto index_req = MakeGetRequest("/", token);
   auto index_response = GetIndexPage(index_req, app_ctx_);
   EXPECT_EQ(index_response._status.code, 200u);
-  EXPECT_THAT(index_response.body(),
-              ::testing::HasSubstr("Logout"))
+  EXPECT_THAT(index_response.body(), HasSubstr("Logout"))
       << "Index page should show Logout when logged in";
 }
 
@@ -395,6 +415,6 @@ TEST_F(LoginIntegrationTest,
               0)
       << "Expected Set-Cookie header in login response";
   EXPECT_THAT(login_response._headers.at("Set-Cookie"),
-              ::testing::HasSubstr("auth_token="));
+              HasSubstr("auth_token="));
   EXPECT_EQ(login_response._headers["Location"], "/home/");
 }

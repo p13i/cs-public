@@ -20,3 +20,12 @@ cc_library(
         "//cs:log",
     ],
 )
+
+cc_test(
+    name = "neural_net_test",
+    srcs = ["neural_net_test.gpt.cc"],
+    deps = [
+        ":neural_net",
+        "@googletest//:gtest_main",
+    ],
+)

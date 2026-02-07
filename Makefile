@@ -15,6 +15,9 @@ BAZEL_BUILD_TARGETS ?= //cs/...
 DOC_BASE ?= http://localhost:8080
 DOC_HANDLER ?= demo/subscribe
 DOC_OPTS ?=
+PROBE_HOST ?= message-queue
+PROBE_JSON ?= cs/apps/message-queue/probes.json
+PROBE_PORT ?= 8080
 # For timeout(1): use env so the command is a single executable (timeout
 # otherwise treats USE_BAZEL_VERSION=8.4.2 as the command and fails).
 # Force compose builds to skip cache and refresh layers every run.
@@ -138,7 +141,7 @@ clean-volumes:  ## Remove Docker volumes (destructive).
 	read -r confirm; \
 	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
 	  . bin/utils/docker.sh; \
-	  remove_volumes database-volume docuseal_data gitea_data overleaf_redis_data overleaf_mongo_data penpot_assets_data penpot_postgres_data penpot_redis_data; \
+	  remove_volumes database-volume blob-volume docuseal_data gitea_data overleaf_redis_data overleaf_mongo_data penpot_assets_data penpot_postgres_data penpot_redis_data; \
 	else \
 	  echo "Cancelled."; \
 	fi
@@ -577,6 +580,36 @@ parse-logs-job:  ## Run parse-logs every 300s until interrupted.
 	done
 
 
+.PHONY: probe
+probe:  ## Run prober (PROBE_HOST, PROBE_PORT, PROBE_JSON). Optional PROBE_AUDIO copied as /probe_audio.mp3 when present.
+	COMPOSE_PROJECT_NAME=cs docker compose run -d --name prober-tmp --no-deps www-trycopilot-ai sleep 300 && \
+	bazel build //cs/apps/prober:main && \
+	docker cp bazel-bin/cs/apps/prober/main prober-tmp:/main && \
+	docker cp $(PROBE_JSON) prober-tmp:/probes.json && \
+	( [ -z "$(PROBE_AUDIO)" ] || [ ! -f "$(PROBE_AUDIO)" ] || docker cp "$(PROBE_AUDIO)" prober-tmp:/probe_audio.mp3 ) && \
+	docker exec prober-tmp /main --host=$(PROBE_HOST) --port=$(PROBE_PORT) --probes_file=/probes.json; \
+	docker rm -f prober-tmp
+
+.PHONY: probe-blob
+probe-blob:  ## Run prober against blob-service.
+	$(MAKE) probe PROBE_HOST=blob-service PROBE_JSON=cs/apps/blob-service/probes.json PROBE_PORT=8080
+
+.PHONY: probe-mq
+probe-mq:  ## Run prober against message-queue.
+	$(MAKE) probe PROBE_HOST=message-queue PROBE_JSON=cs/apps/message-queue/probes.json PROBE_PORT=8080
+
+.PHONY: probe-scribe
+probe-scribe:  ## Run prober against scribe-service. Uses PROBE_AUDIO (default probe fixture) when present for upload probe.
+	$(MAKE) probe PROBE_HOST=scribe-service PROBE_JSON=cs/apps/scribe-service/probes.json PROBE_PORT=8080 PROBE_AUDIO=cs/apps/scribe-service/probe_audio.mp3
+
+.PHONY: probe-scribe-worker
+probe-scribe-worker:  ## Run prober against scribe-service (worker has no HTTP server; same stack as probe-scribe).
+	$(MAKE) probe-scribe
+
+.PHONY: probe-tq
+probe-tq:  ## Run prober against task-queue-service.
+	$(MAKE) probe PROBE_HOST=task-queue-service PROBE_JSON=cs/apps/task-queue-service/probes.json PROBE_PORT=8080
+
 .PHONY: prompt
 prompt:  ## Send a prompt to https://www.trycopilot.ai/prompt/?prompt=... (GET) and print the reply.
 	@curl -fsSL -G --data-urlencode "prompt=$$MSG" "https://www.trycopilot.ai/prompt/"
@@ -634,7 +667,7 @@ setup-mobile:  ## Installs NPM packages for mobile app.
 setup-volumes:  ## Create Docker volumes if they don't exist.
 	@set -euo pipefail; \
 	. cs/devtools/docker.sh; \
-	create_volumes_if_not_exist database-volume docuseal_data gitea_data overleaf_redis_data overleaf_mongo_data penpot_assets_data penpot_postgres_data penpot_redis_data
+	create_volumes_if_not_exist database-volume blob-volume docuseal_data gitea_data overleaf_redis_data overleaf_mongo_data penpot_assets_data penpot_postgres_data penpot_redis_data
 
 .PHONY: stash
 stash:  ## Commit all changes to branch $(BRANCH), push, then switch back to main.
@@ -761,8 +794,6 @@ up: images-build setup-volumes ## Bring up the production stack (docker-compose.
 	  echo "Try: make down && make up"; \
 	  exit 1; \
 	fi; \
-	echo "[up] Force-recreating service-registry so it uses the newly built image"; \
-	COMPOSE_PROJECT_NAME=cs docker compose up -d --force-recreate service-registry 2>&1 || true; \
 	echo "[up] Waiting for services to initialize..."; \
 	sleep 3; \
 	echo "[up] Checking service status..."; \

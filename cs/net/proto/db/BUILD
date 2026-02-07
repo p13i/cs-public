@@ -17,25 +17,14 @@ cc_library(
 )
 
 cc_library(
-    name = "database_base_url",
-    hdrs = ["database_base_url.gpt.hh"],
-    visibility = ["//visibility:public"],
-    deps = ["//cs/util/di:constant_dep"],
-)
-
-cc_library(
-    name = "in_memory_client",
-    srcs = ["in_memory_client.gpt.cc"],
-    hdrs = ["in_memory_client.gpt.hh"],
+    name = "client_mock",
+    hdrs = ["client_mock.gpt.hh"],
     visibility = ["//visibility:public"],
     deps = [
         ":client",
-        "//cs:log",
         "//cs:result",
-        "//cs/net/json:object",
-        "//cs/net/json:parsers",
         "//cs/net/proto/db/protos:database.proto",
-        "//cs/util:uuid",
+        "@googletest//:gtest",
     ],
 )
 
@@ -87,5 +76,17 @@ cc_library(
         "//cs/net/json:object",
         "//cs/net/json:parsers",
         "//cs/util:fmt",
+    ],
+)
+
+cc_test(
+    name = "db_test",
+    srcs = ["db_test.gpt.cc"],
+    deps = [
+        ":db",
+        "//cs:result",
+        "//cs/fs",
+        "//cs/net/json:object",
+        "@googletest//:gtest_main",
     ],
 )

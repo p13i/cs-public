@@ -14,7 +14,6 @@
 #include "cs/net/http/response.hh"
 #include "cs/net/http/web_app.hh"
 #include "cs/net/proto/db/client.gpt.hh"
-#include "cs/net/proto/db/database_base_url.gpt.hh"
 #include "cs/net/proto/db/db.hh"
 #include "cs/net/proto/form/proto_form.gpt.hh"
 #include "cs/net/rpc/rpc.hh"
@@ -42,7 +41,6 @@ using ::cs::net::http::kContentTypeTextPlain;
 using ::cs::net::http::Request;
 using ::cs::net::http::Response;
 using ::cs::net::http::WebApp;
-using ::cs::net::proto::db::DatabaseBaseUrl;
 using ::cs::net::proto::db::DatabaseClientImpl;
 using ::cs::net::proto::db::EQUALS;
 using ::cs::net::proto::db::IDatabaseClient;
@@ -62,9 +60,7 @@ ResultOr<std::string> MakeSingleFileHTML(std::string url) {
   return Fetch(url, "GET");
 }
 
-using AppContext = ::cs::util::di::Context<
-    ::cs::net::proto::db::DatabaseBaseUrl,
-    ::cs::net::proto::db::IDatabaseClient>;
+using AppContext = Context<IDatabaseClient>;
 
 Response GetIndexPage(Request request, AppContext&) {
   using namespace cs::net::html::dom;
@@ -156,12 +152,10 @@ Result RunMyWebApp(std::vector<std::string> argv) {
 
   auto app_ctx =
       ContextBuilder<AppContext>()
-          .bind<DatabaseBaseUrl>()
-          .with(std::string("http://database-service:8080"))
           .bind<IDatabaseClient>()
-          .from([](AppContext& ctx) {
+          .from([](AppContext&) {
             return std::make_shared<DatabaseClientImpl>(
-                ctx.Get<DatabaseBaseUrl>()->value());
+                "http://database-service:8080");
           })
           .build();
 

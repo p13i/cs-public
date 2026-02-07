@@ -3,14 +3,14 @@
 
 #include <string>
 
+#include "cs/apps/trycopilot.ai/api/test_db_store.gpt.hh"
 #include "cs/apps/trycopilot.ai/api/user.hh"
 #include "cs/apps/trycopilot.ai/protos/auth.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/gencode/auth.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/gencode/user.proto.hh"
 #include "cs/apps/trycopilot.ai/protos/user.proto.hh"
 #include "cs/net/proto/db/client.gpt.hh"
-#include "cs/net/proto/db/database_base_url.gpt.hh"
-#include "cs/net/proto/db/in_memory_client.gpt.hh"
+#include "cs/net/proto/db/client_mock.gpt.hh"
 #include "cs/net/proto/db/query_helpers.gpt.hh"
 #include "cs/net/proto/db/query_view.gpt.hh"
 #include "cs/util/di/context.gpt.hh"
@@ -22,6 +22,7 @@ namespace {  // use_usings
 using ::cs::apps::trycopilotai::api::CreateUserRPC;
 using ::cs::apps::trycopilotai::api::LoginRPC;
 using ::cs::apps::trycopilotai::api::LogoutRPC;
+using ::cs::apps::trycopilotai::api::testing::TestDbStore;
 using ::cs::apps::trycopilotai::protos::CreateUserRequest;
 using ::cs::apps::trycopilotai::protos::CreateUserResponse;
 using ::cs::apps::trycopilotai::protos::LoginRequest;
@@ -30,29 +31,49 @@ using ::cs::apps::trycopilotai::protos::LogoutRequest;
 using ::cs::apps::trycopilotai::protos::LogoutResponse;
 using ::cs::apps::trycopilotai::protos::Token;
 using ::cs::apps::trycopilotai::protos::User;
-using ::cs::net::proto::db::DatabaseBaseUrl;
 using ::cs::net::proto::db::EQUALS;
 using ::cs::net::proto::db::IDatabaseClient;
-using ::cs::net::proto::db::InMemoryDatabaseClient;
+using ::cs::net::proto::db::MockDatabaseClient;
 using ::cs::net::proto::db::QueryView;
 using ::cs::util::di::Context;
 using ::cs::util::di::ContextBuilder;
 using ::cs::util::random::uuid::generate_uuid_v4;
+using ::testing::HasSubstr;
+using ::testing::Invoke;
+using ::testing::Return;
 }  // namespace
 
-using AppContext =
-    Context<DatabaseBaseUrl, IDatabaseClient>;
+using AppContext = Context<IDatabaseClient>;
 
-// Test fixture for auth tests with in-memory DB via DI
+// Test fixture for auth tests with mocked DB via DI
 class AuthAPITest : public ::testing::Test {
  protected:
   void SetUp() override {
-    app_ctx_ = ContextBuilder<AppContext>()
-                   .bind<DatabaseBaseUrl>()
-                   .with(std::string(""))
-                   .bind<IDatabaseClient>()
-                   .to<InMemoryDatabaseClient>()
-                   .build();
+    db_store_ =
+        std::make_shared<cs::apps::trycopilotai::api::
+                             testing::TestDbStore>();
+    mock_db_ = std::make_shared<MockDatabaseClient>();
+    ON_CALL(*mock_db_, GetBaseUrl())
+        .WillByDefault(Return("mock://"));
+    ON_CALL(*mock_db_, Upsert(::testing::_))
+        .WillByDefault(
+            Invoke([this](const cs::net::proto::database::
+                              UpsertRequest& r) {
+              return cs::apps::trycopilotai::api::testing::
+                  UpsertToStore(r, db_store_.get());
+            }));
+    ON_CALL(*mock_db_, Query(::testing::_))
+        .WillByDefault(
+            Invoke([this](const cs::net::proto::database::
+                              QueryRequest& r) {
+              return cs::apps::trycopilotai::api::testing::
+                  QueryFromStore(r, *db_store_);
+            }));
+    app_ctx_ =
+        ContextBuilder<AppContext>()
+            .bind<IDatabaseClient>()
+            .from([this](AppContext&) { return mock_db_; })
+            .build();
   }
 
   CreateUserRequest BuildCreateUserRequest(
@@ -74,6 +95,8 @@ class AuthAPITest : public ::testing::Test {
     return req;
   }
 
+  std::shared_ptr<TestDbStore> db_store_;
+  std::shared_ptr<MockDatabaseClient> mock_db_;
   AppContext app_ctx_;
   std::string test_email_ =
       "test_" + generate_uuid_v4() + "@example.com";
@@ -99,9 +122,8 @@ TEST_F(AuthAPITest, CreateUserRejectsEmptyEmail) {
   auto result = api.Process(request);
 
   ASSERT_FALSE(result.ok());
-  EXPECT_THAT(
-      result.message(),
-      ::testing::HasSubstr("Email must not be empty"));
+  EXPECT_THAT(result.message(),
+              HasSubstr("Email must not be empty"));
 }
 
 TEST_F(AuthAPITest, CreateUserRejectsEmptyPassword) {
@@ -112,9 +134,8 @@ TEST_F(AuthAPITest, CreateUserRejectsEmptyPassword) {
   auto result = api.Process(request);
 
   ASSERT_FALSE(result.ok());
-  EXPECT_THAT(
-      result.message(),
-      ::testing::HasSubstr("Password must not be empty"));
+  EXPECT_THAT(result.message(),
+              HasSubstr("Password must not be empty"));
 }
 
 TEST_F(AuthAPITest, CreateUserRejectsPasswordMismatch) {
@@ -125,9 +146,8 @@ TEST_F(AuthAPITest, CreateUserRejectsPasswordMismatch) {
   auto result = api.Process(request);
 
   ASSERT_FALSE(result.ok());
-  EXPECT_THAT(
-      result.message(),
-      ::testing::HasSubstr("Passwords do not match"));
+  EXPECT_THAT(result.message(),
+              HasSubstr("Passwords do not match"));
 }
 
 TEST_F(AuthAPITest, CreateUserRejectsDuplicateEmail) {
@@ -141,9 +161,9 @@ TEST_F(AuthAPITest, CreateUserRejectsDuplicateEmail) {
   auto duplicate_result = api.Process(request);
 
   ASSERT_FALSE(duplicate_result.ok());
-  EXPECT_THAT(duplicate_result.message(),
-              ::testing::HasSubstr(
-                  "User with this email already exists"));
+  EXPECT_THAT(
+      duplicate_result.message(),
+      HasSubstr("User with this email already exists"));
 }
 
 TEST_F(AuthAPITest, LoginSuccessAfterRegistration) {
@@ -183,7 +203,7 @@ TEST_F(AuthAPITest, LoginRejectsWrongPassword) {
 
   ASSERT_FALSE(login_result.ok());
   EXPECT_THAT(login_result.message(),
-              ::testing::HasSubstr("Invalid password"));
+              HasSubstr("Invalid password"));
 }
 
 TEST_F(AuthAPITest, LoginRejectsNonexistentUser) {
@@ -196,7 +216,7 @@ TEST_F(AuthAPITest, LoginRejectsNonexistentUser) {
 
   ASSERT_FALSE(login_result.ok());
   EXPECT_THAT(login_result.message(),
-              ::testing::HasSubstr("No values found"));
+              HasSubstr("No values found"));
 }
 
 TEST_F(AuthAPITest, LoginReusesExistingActiveToken) {
@@ -265,6 +285,5 @@ TEST_F(AuthAPITest, LogoutRejectsEmptyTokenUuid) {
 
   ASSERT_FALSE(result.ok());
   EXPECT_THAT(result.message(),
-              ::testing::HasSubstr(
-                  "token_uuid` must not be empty"));
+              HasSubstr("token_uuid` must not be empty"));
 }

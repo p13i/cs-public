@@ -4,6 +4,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::parsers::CheckInBounds;
 using ::cs::parsers::Consume;
 using ::cs::parsers::ConsumePrefix;
@@ -19,6 +20,7 @@ using ::cs::parsers::TryConsumeString;
 using ::testing::Eq;
 using ::testing::IsFalse;
 using ::testing::IsTrue;
+}  // namespace
 
 TEST(ParsersTest, CheckInBoundsError) {
   auto result = CheckInBounds("a", 2);

@@ -189,4 +189,54 @@ py_test(
     python_version = "PY3",
 )
 
+py_test(
+    name = "test_parse_logs",
+    srcs = [
+        "parse_logs.py",
+        "test_parse_logs.gpt.py",
+    ],
+    main = "test_parse_logs.gpt.py",
+    python_version = "PY3",
+)
+
+py_test(
+    name = "test_embed_files",
+    srcs = [
+        "embed_files.py",
+        "test_embed_files.gpt.py",
+    ],
+    main = "test_embed_files.gpt.py",
+    python_version = "PY3",
+)
+
+py_test(
+    name = "test_inline_using",
+    srcs = [
+        "inline_using.py",
+        "test_inline_using.gpt.py",
+    ],
+    main = "test_inline_using.gpt.py",
+    python_version = "PY3",
+)
+
+py_test(
+    name = "test_newfile",
+    srcs = [
+        "newfile.py",
+        "test_newfile.gpt.py",
+    ],
+    main = "test_newfile.gpt.py",
+    python_version = "PY3",
+)
+
+py_test(
+    name = "test_lint_makefile",
+    srcs = [
+        "lint_makefile.py",
+        "test_lint_makefile.gpt.py",
+    ],
+    main = "test_lint_makefile.gpt.py",
+    python_version = "PY3",
+)
+
 exports_files(["requirements.txt"])

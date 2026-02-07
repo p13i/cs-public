@@ -18,7 +18,6 @@ cc_library(
         "//cs/net/json:object",
         "//cs/net/json:parsers",
         "//cs/net/proto/db",
-        "//cs/net/proto/db:database_base_url",
         "//cs/net/rpc",
         "//cs/util:context",
     ],
@@ -43,7 +42,6 @@ cc_binary(
         "//cs/net/json:object",
         "//cs/net/json:parsers",
         "//cs/net/proto/db",
-        "//cs/net/proto/db:database_base_url",
         "//cs/parsers:arg_parser",
         "//cs/util:fmt",
         "//cs/util:random",
@@ -58,6 +56,22 @@ cc_test(
     deps = [
         "//cs/apps/service-registry/protos:config.proto",
         "//cs/parsers:arg_parser",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "rpc_test",
+    srcs = ["rpc_test.gpt.cc"],
+    deps = [
+        ":rpc",
+        "//cs:result",
+        "//cs/apps/service-registry/protos:service.proto",
+        "//cs/net/proto/db:client",
+        "//cs/net/proto/db:client_mock",
+        "//cs/net/proto/db/protos:database.proto",
+        "//cs/testing:extensions",
+        "//cs/util/di:context",
         "@googletest//:gtest_main",
     ],
 )

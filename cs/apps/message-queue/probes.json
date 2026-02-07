@@ -1,0 +1,102 @@
+{
+  "probes": [
+    {
+      "description": "Health endpoint returns 200",
+      "request": {
+        "method": "GET",
+        "url": "/health/"
+      },
+      "expected_response": {
+        "status": 200
+      }
+    },
+    {
+      "description": "Enqueue a message with no consumer_service is bad request",
+      "request": {
+        "method": "POST",
+        "url": "/rpc/enqueue/",
+        "body": {
+          "message": {
+            "uuid": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+            "payload": {},
+            "timestamp": "2025-02-04T00:00:00Z",
+            "status": "pending",
+            "type": "probe",
+            "consumer_service": ""
+          }
+        }
+      },
+      "expected_response": {
+        "status": 400
+      }
+    },
+    {
+      "description": "Dequeue on empty queue returns has_message false",
+      "request": {
+        "method": "POST",
+        "url": "/rpc/dequeue/",
+        "body": {
+          "consumer_service": "prober"
+        }
+      },
+      "expected_response": {
+        "status": 200,
+        "body": {
+          "has_message": false,
+          "message": {
+            "uuid": "",
+            "payload": null,
+            "timestamp": "",
+            "status": "",
+            "type": "",
+            "consumer_service": ""
+          }
+        }
+      }
+    },
+    {
+      "description": "Enqueue a valid message",
+      "request": {
+        "method": "POST",
+        "url": "/rpc/enqueue/",
+        "body": {
+          "message": {
+            "uuid": "cccccccc-dddd-4eee-8fff-000000000001",
+            "payload": { "probe": "e2e-roundtrip" },
+            "timestamp": "2026-02-04T12:00:00Z",
+            "status": "pending",
+            "type": "probe.e2e",
+            "consumer_service": "prober"
+          }
+        }
+      },
+      "expected_response": {
+        "status": 200
+      }
+    },
+    {
+      "description": "Dequeue returns the enqueued message",
+      "request": {
+        "method": "POST",
+        "url": "/rpc/dequeue/",
+        "body": {
+          "consumer_service": "prober"
+        }
+      },
+      "expected_response": {
+        "status": 200,
+        "body": {
+          "has_message": true,
+          "message": {
+            "uuid": "cccccccc-dddd-4eee-8fff-000000000001",
+            "payload": { "probe": "e2e-roundtrip" },
+            "timestamp": "2026-02-04T12:00:00Z",
+            "status": "consumed",
+            "type": "probe.e2e",
+            "consumer_service": "prober"
+          }
+        }
+      }
+    }
+  ]
+}

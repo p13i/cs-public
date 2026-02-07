@@ -15,22 +15,26 @@
 #include "cs/parsers/parsers.hh"
 #include "cs/result.hh"
 
+namespace {  // use_usings
+using ::cs::net::json::Object;
+using ::cs::parsers::ParseInt;
+}  // namespace
+
 namespace cs::net::rpc {
 
 std::string QueryParamsToJson(
     std::map<std::string, std::string> map) {
-  cs::net::json::Object::KVMap kv;
+  Object::KVMap kv;
   for (const auto& [key, value] : map) {
-    cs::net::json::Object obj;
-    if (auto result = cs::parsers::ParseInt(value);
-        result.ok()) {
-      obj = cs::net::json::Object::NewInt(result.value());
+    Object obj;
+    if (auto result = ParseInt(value); result.ok()) {
+      obj = Object::NewInt(result.value());
     } else {
-      obj = cs::net::json::Object::NewString(value);
+      obj = Object::NewString(value);
     }
     kv[key] = obj;
   }
-  cs::net::json::Object json(kv);
+  Object json(kv);
   return json.str();
 }
 

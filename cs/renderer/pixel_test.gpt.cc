@@ -6,8 +6,10 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::renderer::Pixel;
 using ::testing::HasSubstr;
+}  // namespace
 
 TEST(PixelTest, StreamOutput) {
   Pixel px(1, 2, 3, 4);

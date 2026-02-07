@@ -17,7 +17,6 @@ cc_library(
         "//cs/net/http:web_app",
         "//cs/net/proto:validators",
         "//cs/net/proto/db",
-        "//cs/net/proto/db:database_base_url",
         "//cs/net/rpc",
         "//cs/parsers",
         "//cs/util:context",
@@ -37,7 +36,6 @@ cc_library(
         "//cs/net/http:response",
         "//cs/net/http:web_app",
         "//cs/net/proto/db",
-        "//cs/net/proto/db:database_base_url",
         "//cs/net/rpc",
         "//cs/parsers",
         "//cs/util:context",
@@ -55,10 +53,22 @@ cc_library(
         "//cs/apps/trycopilot.ai/protos:log.proto",
         "//cs/apps/trycopilot.ai/protos:user.proto",
         "//cs/net/proto/db",
-        "//cs/net/proto/db:database_base_url",
         "//cs/net/rpc",
         "//cs/parsers",
         "//cs/util:context",
+        "//cs/util:uuid",
+    ],
+)
+
+cc_library(
+    name = "test_db_store",
+    srcs = ["test_db_store.gpt.cc"],
+    hdrs = ["test_db_store.gpt.hh"],
+    deps = [
+        "//cs:result",
+        "//cs/net/json:object",
+        "//cs/net/json:parsers",
+        "//cs/net/proto/db/protos:database.proto",
         "//cs/util:uuid",
     ],
 )
@@ -68,10 +78,12 @@ cc_test(
     srcs = ["logs_test.gpt.cc"],
     deps = [
         ":logs",
+        ":test_db_store",
         "//cs/apps/trycopilot.ai/protos:log.proto",
         "//cs/net/proto/db",
-        "//cs/net/proto/db:database_base_url",
-        "//cs/net/proto/db:in_memory_client",
+        "//cs/net/proto/db:client_mock",
+        "//cs/net/proto/db:query_view",
+        "//cs/net/proto/db/protos:database.proto",
         "//cs/util:context",
         "//cs/util:uuid",
         "//cs/util/di:context",
@@ -84,13 +96,14 @@ cc_test(
     srcs = ["auth_test.gpt.cc"],
     deps = [
         ":auth",
+        ":test_db_store",
         ":user",
         "//cs/apps/trycopilot.ai/protos:auth.proto",
         "//cs/apps/trycopilot.ai/protos:user.proto",
         "//cs/net/proto/db",
-        "//cs/net/proto/db:database_base_url",
-        "//cs/net/proto/db:in_memory_client",
+        "//cs/net/proto/db:client_mock",
         "//cs/net/proto/db:query_view",
+        "//cs/net/proto/db/protos:database.proto",
         "//cs/util:uuid",
         "//cs/util/di:context",
         "@googletest//:gtest_main",
@@ -102,13 +115,14 @@ cc_test(
     srcs = ["auth_flow_test.gpt.cc"],
     deps = [
         ":auth",
+        ":test_db_store",
         ":user",
         "//cs/apps/trycopilot.ai/protos:auth.proto",
         "//cs/apps/trycopilot.ai/protos:user.proto",
         "//cs/net/proto/db",
-        "//cs/net/proto/db:database_base_url",
-        "//cs/net/proto/db:in_memory_client",
+        "//cs/net/proto/db:client_mock",
         "//cs/net/proto/db:query_view",
+        "//cs/net/proto/db/protos:database.proto",
         "//cs/util:uuid",
         "//cs/util/di:context",
         "@googletest//:gtest_main",
@@ -120,6 +134,7 @@ cc_test(
     srcs = ["login_integration_test.gpt.cc"],
     deps = [
         ":auth",
+        ":test_db_store",
         ":user",
         "//cs/apps/trycopilot.ai/protos:auth.proto",
         "//cs/apps/trycopilot.ai/protos:user.proto",
@@ -127,8 +142,8 @@ cc_test(
         "//cs/net/http:request",
         "//cs/net/http:response",
         "//cs/net/proto/db",
-        "//cs/net/proto/db:database_base_url",
-        "//cs/net/proto/db:in_memory_client",
+        "//cs/net/proto/db:client_mock",
+        "//cs/net/proto/db/protos:database.proto",
         "//cs/util:uuid",
         "//cs/util/di:context",
         "@googletest//:gtest_main",
@@ -175,5 +190,43 @@ cc_library(
         "//cs:result",
         "//cs/apps/trycopilot.ai/protos:prompt_driver.proto",
         "//cs/net/rpc",
+    ],
+)
+
+cc_test(
+    name = "user_test",
+    srcs = ["user_test.gpt.cc"],
+    deps = [
+        ":test_db_store",
+        ":user",
+        "//cs/apps/trycopilot.ai/protos:auth.proto",
+        "//cs/apps/trycopilot.ai/protos:user.proto",
+        "//cs/net/proto/db",
+        "//cs/net/proto/db:client_mock",
+        "//cs/net/proto/db:query_view",
+        "//cs/net/proto/db/protos:database.proto",
+        "//cs/util:uuid",
+        "//cs/util/di:context",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "game_test",
+    srcs = ["game_test.gpt.cc"],
+    deps = [
+        ":game",
+        "//cs/apps/trycopilot.ai/protos:game.proto",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "prompt_test",
+    srcs = ["prompt_test.gpt.cc"],
+    deps = [
+        ":prompt",
+        "//cs/apps/trycopilot.ai/protos:prompt.proto",
+        "@googletest//:gtest_main",
     ],
 )

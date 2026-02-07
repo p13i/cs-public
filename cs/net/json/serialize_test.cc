@@ -9,8 +9,10 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::Result;
 using ::cs::net::json::Object;
+using ::cs::net::json::SerializeObjectPrettyPrintRecurse;
 using ::cs::net::json::Type;
 using ::cs::net::json::parsers::ParseArray;
 using ::cs::net::json::parsers::ParseBoolean;
@@ -24,6 +26,7 @@ using ::testing::IsFalse;
 using ::testing::IsTrue;
 using ::testing::Matcher;
 using ::testing::StrEq;
+}  // namespace
 
 class SerializeTest : public ::testing::Test {};
 
@@ -52,14 +55,13 @@ TEST_F(SerializeTest, ExampleMap) {
   Object parsed_object = result.value();
   ASSERT_THAT(parsed_object.type(), Eq(Type::kMap))
       << parsed_object;
-  auto map = parsed_object.as(
-      std::map<std::string, cs::net::json::Object>());
+  auto map =
+      parsed_object.as(std::map<std::string, Object>());
   ASSERT_THAT(map.size(), Eq(2));
   ASSERT_THAT(map["key"].type(), Eq(Type::kString));
   ASSERT_THAT(map["key"].as(std::string()), StrEq("value"));
   ASSERT_THAT(map["key2"].type(), Eq(Type::kArray));
-  auto array =
-      map["key2"].as(std::vector<cs::net::json::Object>());
+  auto array = map["key2"].as(std::vector<Object>());
   ASSERT_THAT(array.size(), Eq(4));
   ASSERT_THAT(array[0].type(), Eq(Type::kBoolean));
   ASSERT_THAT(array[0].as(bool()), IsTrue());
@@ -78,8 +80,7 @@ TEST_F(SerializeTest, WithIndent) {
                    Object(1.4f),
                })}});
   std::stringstream ss;
-  cs::net::json::SerializeObjectPrettyPrintRecurse(
-      ss, object, 4, 0);
+  SerializeObjectPrettyPrintRecurse(ss, object, 4, 0);
   std::string actual = ss.str();
   std::string expected =
       // clang-format off

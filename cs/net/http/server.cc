@@ -14,16 +14,18 @@
 #include "cs/util/timeit.hh"
 #include "cs/util/uuid.hh"
 
+namespace {  // use_usings
+using ::cs::Error;
+using ::cs::Ok;
+using ::cs::Result;
+using ::cs::parsers::ParseInt;
+}  // namespace
+
 // Based on: https://github.com/OsasAzamegbe/http-server
 namespace {
 
 const unsigned int BUFFER_SIZE = 2 << 15;
 #define VERBOSE_LOG true
-
-using ::cs::Error;
-using ::cs::Ok;
-using ::cs::Result;
-using ::cs::parsers::ParseInt;
 
 }  // namespace
 

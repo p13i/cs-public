@@ -7,12 +7,14 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::net::load::balancer::protos::Config;
 using ::cs::parsers::ParseArgs;
 using ::testing::Eq;
 using ::testing::IsFalse;
 using ::testing::IsTrue;
 using ::testing::StrEq;
+}  // namespace
 
 class LoadBalancerArgParserTest : public ::testing::Test {};
 

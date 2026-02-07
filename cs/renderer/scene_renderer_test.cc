@@ -8,6 +8,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::renderer::Camera;
 using ::cs::renderer::Film;
 using ::cs::renderer::Pixel;
@@ -16,6 +17,7 @@ using ::cs::renderer::SceneRenderer;
 using ::cs::renderer::linalg::transforms::LookAt;
 using ::cs::renderer::shapes::Plane;
 using ::cs::renderer::shapes::Sphere;
+}  // namespace
 
 TEST(SceneRenderer, RenderPixelHitAndMiss) {
   Film film(std::tuple<unsigned int, unsigned int>(2, 2));

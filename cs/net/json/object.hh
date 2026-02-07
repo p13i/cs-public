@@ -248,6 +248,14 @@ class Object {
     return ss.str();
   }
 
+  bool operator==(const Object& other) const {
+    return _value == other._value;
+  }
+
+  bool operator!=(const Object& other) const {
+    return !(*this == other);
+  }
+
   const Value& value() const { return _value; }
 
  private:

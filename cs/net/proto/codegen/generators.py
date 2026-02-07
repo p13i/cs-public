@@ -15,6 +15,7 @@ from cs.net.proto.codegen.helpers import (
 )
 from cs.net.proto.codegen.testing import (
     ValidJsonValue,
+    ValidCcTestMatcherValue,
     VectorMatcher,
     MapMatcher,
     TestMatcher,
@@ -52,6 +53,8 @@ class {proto.name}Impl : public {proto.namespace}::{proto.name} {{
     public:
     std::string Serialize(unsigned int indent = 0) const;
     cs::ResultOr<{proto.name}> Parse(std::string s);
+    cs::net::json::Object ToObject() const override;
+    cs::ResultOr<{proto.name}> FromObject(cs::net::json::Object obj) const override;
 }};
 """
 
@@ -89,24 +92,74 @@ def GenerateMetaImplementation(proto: Proto, PROTOS: ProtoDB):
 """
 
 
+def GenerateOperatorEqualsDeclaration(proto: Proto) -> str:
+    """Generate operator== declaration in the proto namespace."""
+    return f"""namespace {proto.namespace} {{
+bool operator==(const {proto.name}& a, const {proto.name}& b);
+}}  // namespace {proto.namespace}
+"""
+
+
+def GenerateOperatorEqualsDefinition(proto: Proto, PROTOS: ProtoDB) -> str:
+    """Generate operator== definition comparing all fields."""
+    if not proto.fields:
+        return f"""namespace {proto.namespace} {{
+bool operator==(const {proto.name}& a, const {proto.name}& b) {{
+  return true;
+}}
+}}  // namespace {proto.namespace}
+"""
+
+    def eq_part(f: Field) -> str:
+        if f.type == Types.JSON_OBJECT:
+            return f"a.{f.name}.str() == b.{f.name}.str()"
+        return f"a.{f.name} == b.{f.name}"
+
+    parts = [eq_part(f) for f in proto.fields]
+    body = " && ".join(parts)
+    return f"""namespace {proto.namespace} {{
+bool operator==(const {proto.name}& a, const {proto.name}& b) {{
+  return {body};
+}}
+}}  // namespace {proto.namespace}
+"""
+
+
 def GenerateProtoImplClassDefinition(proto: Proto):
+    gen_ns = proto.namespace + "::" + cc_namespace(proto.filename, gen=True)
     return f"""
 // Proto definition of {proto.name}.
-std::string {proto.namespace + '::' + cc_namespace(proto.filename, gen=True)}::{proto.name}Impl::Serialize(unsigned int indent) const {{
+std::string {gen_ns}::{proto.name}Impl::Serialize(unsigned int indent) const {{
     auto that = static_cast<const {proto.namespace}::{proto.name}*>(this);
-    return {proto.namespace + '::' + cc_namespace(proto.filename, gen=True)}::{proto.name}ToString(*that, indent);
+    return {gen_ns}::{proto.name}ToString(*that, indent);
 }};
 template<>
 std::string cs::net::proto::Proto<{proto.namespace}::{proto.name}>::Serialize(unsigned int indent) const {{
     auto that = static_cast<const {proto.namespace}::{proto.name}*>(this);
-    return {proto.namespace + '::' + cc_namespace(proto.filename, gen=True)}::{proto.name}ToString(*that, indent);
+    return {gen_ns}::{proto.name}ToString(*that, indent);
 }};
-cs::ResultOr<{proto.namespace}::{proto.name}> {proto.namespace + '::' + cc_namespace(proto.filename, gen=True)}::{proto.name}Impl::Parse(std::string s) {{
-    return {proto.namespace + '::' + cc_namespace(proto.filename, gen=True)}::{proto.name}FromString(s);
+cs::ResultOr<{proto.namespace}::{proto.name}> {gen_ns}::{proto.name}Impl::Parse(std::string s) {{
+    return {gen_ns}::{proto.name}FromString(s);
 }}
 template<>
 cs::ResultOr<{proto.namespace}::{proto.name}> cs::net::proto::Proto<{proto.namespace}::{proto.name}>::Parse(std::string s) {{
-    return {proto.namespace + '::' + cc_namespace(proto.filename, gen=True)}::{proto.name}FromString(s);
+    return {gen_ns}::{proto.name}FromString(s);
+}}
+cs::net::json::Object {gen_ns}::{proto.name}Impl::ToObject() const {{
+    auto that = static_cast<const {proto.namespace}::{proto.name}*>(this);
+    return {gen_ns}::{proto.name}ToObject(*that);
+}};
+template<>
+cs::net::json::Object cs::net::proto::Proto<{proto.namespace}::{proto.name}>::ToObject() const {{
+    auto that = static_cast<const {proto.namespace}::{proto.name}*>(this);
+    return {gen_ns}::{proto.name}ToObject(*that);
+}};
+cs::ResultOr<{proto.namespace}::{proto.name}> {gen_ns}::{proto.name}Impl::FromObject(cs::net::json::Object obj) const {{
+    return {gen_ns}::{proto.name}FromObject(obj);
+}}
+template<>
+cs::ResultOr<{proto.namespace}::{proto.name}> cs::net::proto::Proto<{proto.namespace}::{proto.name}>::FromObject(cs::net::json::Object obj) const {{
+    return {gen_ns}::{proto.name}FromObject(obj);
 }}
 """
 
@@ -261,12 +314,25 @@ cs::ResultOr<{proto.namespace}::{proto.name}> {proto.name}FromObject(cs::net::js
     return obj.as({T}());
 }};
 """
+    elif T == Types.JSON_OBJECT:
+        return f"""{GenerateToObjectDeclaration(T, PROTOS, semicolon=False)} {{
+    return value;
+}};
+
+{GenerateFromObjectDeclaration(T, PROTOS, semicolon=False)} {{
+    return obj;
+}};
+"""
     else:
         raise ValueError(f"Unsupported type {T} for ToObject definition.")
 
 
 def GenerateGetFieldPathSpecialization(proto: Proto, PROTOS: ProtoDB) -> str:
-    """Generate GetFieldPath template specialization for a proto type."""
+    """Generate GetFieldPath full specializations for (proto, field_type).
+
+    Emit full specializations of the default template so overload resolution
+    chooses them over the default (abort) implementation.
+    """
     proto_fqn = f"{proto.namespace}::{proto.name}"
 
     # Generate field path constants
@@ -277,24 +343,43 @@ def GenerateGetFieldPathSpecialization(proto: Proto, PROTOS: ProtoDB) -> str:
 
     constants_code = "\n".join(constants) if constants else ""
 
-    # Generate template specialization - wrap each comparison in if constexpr
-    # so we only compare member_ptr to fields of matching type.
-    cases = []
-    for field in proto.fields:
-        field_fqn = FullyQualifiedType(field.type, PROTOS)
-        const_name = (
-            f"cs::net::proto::db::codegen_helpers::k{proto.name}_{field.name}_path"
-        )
-        cases.append(
-            f"      if constexpr (std::is_same_v<FieldType, {field_fqn}>) {{\n"
-            f"        if (member_ptr == &{proto_fqn}::{field.name}) "
-            f"return {const_name};\n      }}"
-        )
-
-    cases_code = "\n".join(cases) if cases else "      std::abort();"
-
     if not constants_code:
         return ""
+
+    # One full specialization per distinct field type (template <> GetFieldPath<T, FieldType>).
+    seen_field_types = set()
+    spec_blocks = []
+    for field in proto.fields:
+        field_fqn = FullyQualifiedType(field.type, PROTOS)
+        if field_fqn in seen_field_types:
+            continue
+        seen_field_types.add(field_fqn)
+        # Body: if (member_ptr == &Proto::field) return kpath; for each field of this type.
+        cases = []
+        for f in proto.fields:
+            if FullyQualifiedType(f.type, PROTOS) != field_fqn:
+                continue
+            const_name = (
+                f"cs::net::proto::db::codegen_helpers::k{proto.name}_{f.name}_path"
+            )
+            cases.append(
+                f"  if (member_ptr == &{proto_fqn}::{f.name}) return {const_name};"
+            )
+        cases_code = "\n".join(cases) if cases else "  std::abort();"
+        cases_code += f"""
+  std::fprintf(stderr,
+               "GetFieldPath: unknown member pointer for type %s\\n",
+               "{proto_fqn}");
+  std::abort();"""
+        spec_blocks.append(
+            f"""template <>
+inline std::string GetFieldPath<{proto_fqn}, {field_fqn}>(
+    {field_fqn} {proto_fqn}::*member_ptr) {{
+{cases_code}
+}}"""
+        )
+
+    specs_code = "\n\n".join(spec_blocks)
 
     return f"""
 #include <cstdio>
@@ -306,15 +391,8 @@ namespace cs::net::proto::db::codegen_helpers {{
 {constants_code}
 }}
 
-namespace {proto.namespace} {{
-  template<typename FieldType>
-  std::string GetFieldPath(FieldType {proto_fqn}::*member_ptr) {{
-{cases_code}
-    std::fprintf(stderr,
-                 "GetFieldPath: unknown member pointer for type %s\\n",
-                 "{proto_fqn}");
-    std::abort();
-  }}
+namespace cs::net::proto::db {{
+{specs_code}
 }}
 """
 
@@ -355,27 +433,11 @@ namespace {proto.namespace} {{
 
 
 def GenerateGetFieldPathExplicitInstantiations(proto: Proto, PROTOS: ProtoDB) -> str:
-    """Generate explicit template instantiations for GetFieldPath in .cc."""
-    if not proto.fields:
-        return ""
-    proto_fqn = f"{proto.namespace}::{proto.name}"
-    seen_types = set()
-    lines = []
-    for field in proto.fields:
-        field_fqn = FullyQualifiedType(field.type, PROTOS)
-        if field_fqn in seen_types:
-            continue
-        seen_types.add(field_fqn)
-        lines.append(
-            f"template std::string GetFieldPath<{field_fqn}>("
-            f"{field_fqn} {proto_fqn}::*);"
-        )
-    if not lines:
-        return ""
-    inst_lines = "\n".join(lines)
-    return f"""namespace {proto.namespace} {{
-{inst_lines}
-}}"""
+    """Generate explicit template instantiations for GetFieldPath in .cc.
+
+    With full specializations in the header, no .cc instantiations are needed.
+    """
+    return ""
 
 
 def GenerateJsonProtoDefinitions(proto: Proto):
@@ -438,6 +500,55 @@ TEST_F({proto.name}Test, {proto.name}FromString) {{
         Asserts(field, PROTOS)
         for field in proto.fields
     ])}
+}}
+"""
+
+
+def GenerateToObjectFromObjectTests(proto: Proto, PROTOS: ProtoDB) -> str:
+    """Generate TEST_F cases for ToObject/FromObject round-trip."""
+    gen_ns = proto.namespace + "::" + cc_namespace(proto.filename, gen=True)
+    fqn = f"{proto.namespace}::{proto.name}"
+
+    # Build a valid C++ value using the Builder
+    builder_expr = ValidCcTestMatcherValue(proto.name, PROTOS)
+
+    # For protos with fields, use the Eq matcher; for empty protos, just
+    # assert the round-trip succeeded (no fields to compare).
+    if proto.fields:
+        value_assert = f"EXPECT_THAT(result.value(), {proto.name}Eq(original));"
+    else:
+        value_assert = "(void)result.value();  // No fields to compare."
+
+    return f"""
+class {proto.name}ToObjectFromObjectTest : public ::testing::Test {{}};
+
+TEST_F({proto.name}ToObjectFromObjectTest, FreeFunctionRoundTrip) {{
+    {fqn} original = {builder_expr};
+    cs::net::json::Object obj = {gen_ns}::{proto.name}ToObject(original);
+    auto result = {gen_ns}::{proto.name}FromObject(obj);
+    ASSERT_THAT(result.ok(), IsTrue()) << result.message();
+    {value_assert}
+}}
+
+TEST_F({proto.name}ToObjectFromObjectTest, ImplMethodRoundTrip) {{
+    {gen_ns}::{proto.name}Impl impl;
+    {fqn} original = {builder_expr};
+    static_cast<{fqn}&>(impl) = original;
+    cs::net::json::Object obj = impl.ToObject();
+    auto result = impl.FromObject(obj);
+    ASSERT_THAT(result.ok(), IsTrue()) << result.message();
+    {value_assert}
+}}
+
+TEST_F({proto.name}ToObjectFromObjectTest, ProtoVirtualDispatchRoundTrip) {{
+    {gen_ns}::{proto.name}Impl impl;
+    {fqn} original = {builder_expr};
+    static_cast<{fqn}&>(impl) = original;
+    cs::net::proto::Proto<{fqn}>* p = &impl;
+    cs::net::json::Object obj = p->ToObject();
+    auto result = p->FromObject(obj);
+    ASSERT_THAT(result.ok(), IsTrue()) << result.message();
+    {value_assert}
 }}
 """
 

@@ -6,6 +6,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+namespace {  // use_usings
 using ::cs::renderer::geo::Point3;
 using ::cs::renderer::geo::Vector3;
 using ::cs::renderer::linalg::Matrix4x4;
@@ -19,6 +20,7 @@ using ::cs::renderer::linalg::transforms::Scale;
 using ::cs::renderer::linalg::transforms::Translate;
 using ::testing::IsFalse;
 using ::testing::IsTrue;
+}  // namespace
 
 TEST(Matrix4x4Test, GetSetAndBounds) {
   Matrix4x4 m;

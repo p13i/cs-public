@@ -240,77 +240,12 @@ def get_network_config(network: Dict[str, Any], env: str) -> Dict[str, Any]:
     return config
 
 
-def map_storage_volumes(
-    storage_list: List[Dict[str, Any]], storage_defs: Dict[str, Any]
-) -> List[str]:
-    """Convert abstract storage mounts to docker volume syntax."""
-    volumes = []
-
-    storage_name_map = {
-        "database-volume": "database-volume",
-    }
-
-    for mount in storage_list:
-        storage_name = mount["mount"]
-        access = mount.get("access", "read-write")
-        docker_vol = storage_name_map.get(storage_name, storage_name)
-
-        storage_def = storage_defs.get(storage_name, {})
-        mount_path = f"/data/{storage_name.replace('-', '_')}"
-
-        if storage_name == "database-volume":
-            mount_path = "/data"
-
-        vol_str = f"{docker_vol}:{mount_path}"
-        if access == "read-only":
-            vol_str += ":ro"
-
-        volumes.append(vol_str)
-
-    return volumes
-
-
 def get_service_command(service_name: str, service: Dict[str, Any]) -> List[str]:
-    """Generate command array for service."""
-    # Check if command is specified in YAML config
+    """Generate command array for service. Uses spec command or generic default."""
     if "command" in service:
-        return service["command"]
-
-    # Fall back to hardcoded logic for backward compatibility
+        return list(service["command"])
     port = service.get("network", {}).get("port", 8080)
-    config_vars = service.get("config", [])
-
-    cmd = ["/main"]
-
-    if service_name == "database-service":
-        cmd.extend([f"--host=0.0.0.0", "--data_dir=/data", f"--port={port}"])
-    elif service_name == "service-registry":
-        cmd.extend([f"--host=0.0.0.0", f"--port={port}"])
-    elif service_name == "load-balancer":
-        storage = service.get("storage", [])
-        has_balancer_state = any(
-            s.get("type") == "balancer-state" or s == "balancer-state"
-            for s in (storage if isinstance(storage, list) else [storage])
-        )
-        if has_balancer_state:
-            script = (
-                "chown -R myappuser:myappuser /data/load_balancer && "
-                f"exec /main --host=0.0.0.0 --port={port}"
-            )
-            return ["bash", "-lc", script]
-        cmd.extend([f"--host=0.0.0.0", f"--port={port}"])
-    elif service_name in [
-        "www-trycopilot-ai",
-        "code-viewer",
-        "www-cite-pub",
-    ]:
-        cmd.extend([f"--host=0.0.0.0", f"--port={port}"])
-        if "VERSION" in config_vars:
-            cmd.append("--version=${VERSION}")
-        if "COMMIT" in config_vars:
-            cmd.append("--commit=${COMMIT}")
-
-    return cmd
+    return ["/main", "--host=0.0.0.0", f"--port={port}"]
 
 
 def get_depends_on(dependencies: List[Any]) -> Dict[str, Any]:
@@ -341,8 +276,8 @@ def generate_dockerfile(spec: Dict[str, Any], output_path: Path):
         "# WARNING: This file is auto-generated from system.gpt.yml",
         "# Do not edit manually! Regenerate with: make expand",
         "#",
-        "# Multi-stage Dockerfile - builds all services in parallel",
-        "# Each service gets its own build stage and minimal runtime stage",
+        "# One shared full build (build_full), then per-service thin stages;",
+        "# runtime stages copy binary from build_<service>",
         "",
         "# Base build image with all source code and build tools (from context)",
         f"FROM {ubuntu_digest} AS base",
@@ -396,31 +331,45 @@ def generate_dockerfile(spec: Dict[str, Any], output_path: Path):
         "",
     ]
 
-    # Generate build stage for each service
+    # Collect build list: (service_name, stage_name, source_path, bazel_target)
+    build_list = []
     for service_name, service in services.items():
         if service.get("type") == "tunnel":
             continue
-
         source_path = service.get("source", "")
         if not source_path:
             continue
-
         stage_name = service_name.replace("-", "_")
         bazel_target = f"//{source_path}:main"
-        output_name = f"bazel-output-{stage_name}"
+        build_list.append((service_name, stage_name, source_path, bazel_target))
 
+    # Shared full build: one Bazel run for all service targets
+    if build_list:
+        all_targets = " ".join(bt for (_, _, _, bt) in build_list)
         lines.extend(
             [
-                f"# Build stage for {service_name}",
-                f"FROM base AS build_{stage_name}",
+                "# Shared full build (all service binaries in one Bazel run)",
+                "FROM base AS build_full",
                 "USER myappuser",
                 "WORKDIR /app",
                 "RUN --mount=type=cache,target=/home/myappuser/.cache/bazel,uid=8877,gid=8877 \\",
                 "    mkdir -p /home/myappuser/.cache && \\",
                 "    mkdir -p /home/myappuser/.cache/bazelisk && \\",
                 "    USE_BAZEL_VERSION=8.4.2 npx --yes @bazel/bazelisk \\",
-                f"    --output_base=/tmp/{output_name} \\",
-                f"    build --config=release {bazel_target}",
+                "    --output_base=/tmp/bazel-full-build \\",
+                f"    build --config=release {all_targets}",
+                "",
+            ]
+        )
+
+    # Thin per-service build stages (alias build_full so COPY --from=build_<stage> still works)
+    for service_name, stage_name, _source_path, _bazel_target in build_list:
+        lines.extend(
+            [
+                f"# Build stage for {service_name}",
+                f"FROM build_full AS build_{stage_name}",
+                "USER myappuser",
+                "WORKDIR /app",
                 "",
             ]
         )
@@ -471,13 +420,14 @@ def generate_dockerfile(spec: Dict[str, Any], output_path: Path):
             ]
         )
 
-        # Special case: service-registry needs docker CLI
-        if service_name == "service-registry":
+        # Optional runtime packages from spec (e.g. docker.io for service-registry)
+        runtime_packages = service.get("runtime", {}).get("packages", [])
+        if runtime_packages:
+            pkg_list = " ".join(runtime_packages)
             lines.extend(
                 [
-                    "# Install docker CLI for service discovery",
                     "USER root",
-                    "RUN apt-get update && apt-get install -y --no-install-recommends docker.io && rm -rf /var/lib/apt/lists/*",
+                    f"RUN apt-get update && apt-get install -y --no-install-recommends {pkg_list} && rm -rf /var/lib/apt/lists/*",
                 ]
             )
 
@@ -487,13 +437,17 @@ def generate_dockerfile(spec: Dict[str, Any], output_path: Path):
             f"COPY --from=build_{stage_name} --chown={dockerfile_user}:{dockerfile_user} \\",
             f"    {binary_source} /main",
         ]
-        if service_name == "code-viewer":
-            copy_lines.extend(
-                [
-                    f"COPY --from=cs-public --chown={dockerfile_user}:{dockerfile_user} \\",
-                    "    /cs-public /cs-public",
-                ]
-            )
+        for copy_spec in service.get("copy_from_stage", []):
+            from_stage = copy_spec.get("stage")
+            src = copy_spec.get("source")
+            dest = copy_spec.get("dest")
+            if from_stage and src and dest:
+                copy_lines.extend(
+                    [
+                        f"COPY --from={from_stage} --chown={dockerfile_user}:{dockerfile_user} \\",
+                        f"    {src} {dest}",
+                    ]
+                )
         lines.extend(copy_lines)
 
         lines.extend(
@@ -523,7 +477,6 @@ def generate_compose(
 ):
     """Generate docker-compose.yml for specified environment."""
     services = spec.get("services", {})
-    storage_defs = spec.get("storage", {})
 
     # Compute service hashes for intelligent caching
     if root_path is None:
@@ -539,7 +492,7 @@ def generate_compose(
 
     compose = {
         "services": {},
-        "volumes": {},
+        "volumes": dict(spec.get("volumes", {})),
     }
 
     for service_name, service in services.items():
@@ -606,11 +559,13 @@ def generate_compose(
             "cs.service.hash": service_hash,
         }
 
-        # Container name if needed
+        # Container name from spec (e.g. container_name: true -> cs-{name})
         if get_replicas(service, env) == 1:
-            container_name = service_name
-            if service_name in ["www-cite-pub", "service-registry"]:
-                svc["container_name"] = f"cs-{container_name}"
+            cn = service.get("container_name")
+            if cn is True:
+                svc["container_name"] = f"cs-{service_name}"
+            elif isinstance(cn, str) and cn:
+                svc["container_name"] = cn
 
         # User
         security = service.get("security", {})
@@ -622,52 +577,40 @@ def generate_compose(
         if replicas > 1:
             svc["deploy"] = {"replicas": replicas}
 
-        # Network - handle environment-specific port exposure
-        network = service.get("network", {})
-        interface = network.get("interface", "private")
-        port = network.get("port")
+        # Network: ports/expose from interface and port (env-specific)
+        network_config = get_network_config(service.get("network", {}), env)
+        if network_config:
+            svc.update(network_config)
 
-        # Handle environment-specific interface config
-        if isinstance(interface, dict):
-            interface = interface.get(env, interface.get("prod", "private"))
+        # Volumes: named volume at /data if service specifies volume
+        vol_name = service.get("volume")
+        if vol_name:
+            svc["volumes"] = [f"{vol_name}:/data"]
+            if vol_name not in compose["volumes"]:
+                compose["volumes"][vol_name] = {}
 
-        if port:
-            if service_name == "load-balancer" and env == "dev":
-                # Load balancer exposed in dev
-                svc["ports"] = [f"{port}:{port}"]
-            elif interface in ["public", "management"]:
-                svc["ports"] = [f"{port}:{port}"]
-            elif service_name == "load-balancer":
-                # Load balancer internal-only in prod
-                svc["expose"] = [str(port)]
-            else:
-                svc["expose"] = [str(port)]
+        # Extra bind mounts from spec (e.g. docker socket)
+        extra_mounts = service.get("mounts", [])
+        if extra_mounts:
+            svc["volumes"] = list(svc.get("volumes", [])) + list(extra_mounts)
 
-        # Volumes
-        storage_list = service.get("storage", [])
-        if storage_list:
-            svc["volumes"] = map_storage_volumes(storage_list, storage_defs)
-
-        # Command
+        # Command (with optional env injection)
         cmd = get_service_command(service_name, service)
-        if service_name == "load-balancer":
+        if service.get("inject_environment"):
             cmd = list(cmd)
-            if len(cmd) == 3 and cmd[0] == "bash":
+            if len(cmd) >= 2 and cmd[0] == "/main":
+                cmd.append(f"--environment={env}")
+            elif len(cmd) == 3 and cmd[0] == "bash":
                 cmd[2] = cmd[2].replace(
                     "exec /main ", f"exec /main --environment={env} "
                 )
-            else:
-                cmd = cmd + [f"--environment={env}"]
         if cmd != ["/main"]:
             svc["command"] = cmd
 
-        # Environment variables
-        if service_name == "service-registry":
-            svc["environment"] = ["COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-cs}"]
-            # Add docker socket mount
-            if "volumes" not in svc:
-                svc["volumes"] = []
-            svc["volumes"].append("/var/run/docker.sock:/var/run/docker.sock:ro")
+        # Environment variables from spec
+        env_vars = service.get("environment", [])
+        if env_vars:
+            svc["environment"] = list(env_vars)
 
         # Dependencies
         deps = service.get("dependencies", [])
@@ -677,19 +620,6 @@ def generate_compose(
                 svc["depends_on"] = depends
 
         compose["services"][service_name] = svc
-
-    # Add volumes
-    for storage_name, storage_def in storage_defs.items():
-        docker_vol = {
-            "database-volume": "database-volume",
-        }.get(storage_name, storage_name)
-
-        vol_config = {}
-        # Only database-volume is external (backed up)
-        if storage_name == "database-volume":
-            vol_config["external"] = True
-
-        compose["volumes"][docker_vol] = vol_config if vol_config else None
 
     # Write with header comment
     header = f"""# WARNING: This file is auto-generated from system.gpt.yml

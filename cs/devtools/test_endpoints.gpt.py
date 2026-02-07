@@ -15,6 +15,8 @@ from typing import Dict, List, Optional
 ENDPOINTS = [
     "https://www.cite.pub",
     "https://www.trycopilot.ai",
+    "https://code.trycopilot.ai",
+    "https://dev.code.trycopilot.ai",
 ]
 
 DEFAULT_TIMEOUT = 10  # seconds

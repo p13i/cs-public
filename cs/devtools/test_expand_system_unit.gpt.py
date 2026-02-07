@@ -26,7 +26,6 @@ spec.loader.exec_module(expand_system)
 get_replicas = expand_system.get_replicas
 get_user_id = expand_system.get_user_id
 get_network_config = expand_system.get_network_config
-map_storage_volumes = expand_system.map_storage_volumes
 get_service_command = expand_system.get_service_command
 get_depends_on = expand_system.get_depends_on
 compute_directory_hash = expand_system.compute_directory_hash
@@ -130,49 +129,14 @@ class TestNetworkConfig(unittest.TestCase):
         self.assertEqual(result, {"expose": ["8080"]})
 
 
-class TestMapStorageVolumes(unittest.TestCase):
-    """Test map_storage_volumes() - converts abstract storage to docker volumes"""
-
-    def test_database_volume(self):
-        """database-volume maps to database-volume:/data"""
-        storage_list = [{"mount": "database-volume", "access": "read-write"}]
-        result = map_storage_volumes(storage_list, {})
-        self.assertEqual(result, ["database-volume:/data"])
-
-    def test_read_only_mount(self):
-        """read-only access adds :ro suffix"""
-        storage_list = [{"mount": "database-volume", "access": "read-only"}]
-        result = map_storage_volumes(storage_list, {})
-        self.assertEqual(result, ["database-volume:/data:ro"])
-
-    def test_multiple_mounts(self):
-        """Multiple storage mounts should all be mapped"""
-        storage_list = [
-            {"mount": "database-volume", "access": "read-write"},
-            {"mount": "custom-storage", "access": "read-write"},
-        ]
-        result = map_storage_volumes(storage_list, {})
-        self.assertEqual(
-            result, ["database-volume:/data", "custom-storage:/data/custom_storage"]
-        )
-
-    def test_unknown_storage(self):
-        """Unknown storage types use default naming"""
-        storage_list = [{"mount": "custom-storage", "access": "read-write"}]
-        result = map_storage_volumes(storage_list, {})
-        self.assertEqual(result, ["custom-storage:/data/custom_storage"])
-
-
 class TestServiceCommand(unittest.TestCase):
     """Test get_service_command() - generates command arrays for services"""
 
     def test_database_service(self):
-        """database-service gets special data_dir argument"""
+        """database-service without command gets generic host/port default"""
         service = {"network": {"port": 8080}}
         cmd = get_service_command("database-service", service)
-        self.assertEqual(
-            cmd, ["/main", "--host=0.0.0.0", "--data_dir=/data", "--port=8080"]
-        )
+        self.assertEqual(cmd, ["/main", "--host=0.0.0.0", "--port=8080"])
 
     def test_service_registry(self):
         """service-registry gets host and port arguments"""
@@ -181,19 +145,10 @@ class TestServiceCommand(unittest.TestCase):
         self.assertEqual(cmd, ["/main", "--host=0.0.0.0", "--port=8080"])
 
     def test_web_service_with_config(self):
-        """Web services with VERSION/COMMIT config get those args"""
+        """Web services without command get generic host/port (config in spec command)"""
         service = {"network": {"port": 8080}, "config": ["VERSION", "COMMIT"]}
         cmd = get_service_command("www-trycopilot-ai", service)
-        self.assertEqual(
-            cmd,
-            [
-                "/main",
-                "--host=0.0.0.0",
-                "--port=8080",
-                "--version=${VERSION}",
-                "--commit=${COMMIT}",
-            ],
-        )
+        self.assertEqual(cmd, ["/main", "--host=0.0.0.0", "--port=8080"])
 
     def test_web_service_without_config(self):
         """Web services without config just get host and port"""
@@ -202,19 +157,10 @@ class TestServiceCommand(unittest.TestCase):
         self.assertEqual(cmd, ["/main", "--host=0.0.0.0", "--port=8080"])
 
     def test_code_viewer(self):
-        """code-viewer service gets same treatment as trycopilot"""
+        """code-viewer without command gets generic host/port default"""
         service = {"network": {"port": 8080}, "config": ["VERSION", "COMMIT"]}
         cmd = get_service_command("code-viewer", service)
-        self.assertEqual(
-            cmd,
-            [
-                "/main",
-                "--host=0.0.0.0",
-                "--port=8080",
-                "--version=${VERSION}",
-                "--commit=${COMMIT}",
-            ],
-        )
+        self.assertEqual(cmd, ["/main", "--host=0.0.0.0", "--port=8080"])
 
     def test_load_balancer(self):
         """load-balancer gets standard host/port command (no balancer-state)"""
@@ -491,17 +437,16 @@ class TestServiceCommandEdgeCases(unittest.TestCase):
     """Additional edge case tests for get_service_command()"""
 
     def test_service_with_only_version(self):
-        """Service with VERSION but not COMMIT"""
+        """Service without command gets generic default (no config-based args)"""
         service = {"network": {"port": 8080}, "config": ["VERSION"]}
         cmd = get_service_command("www-trycopilot-ai", service)
-        self.assertIn("--version=${VERSION}", cmd)
-        self.assertNotIn("--commit=", cmd)
+        self.assertEqual(cmd, ["/main", "--host=0.0.0.0", "--port=8080"])
 
     def test_unknown_service_default(self):
-        """Unknown service types get default /main command"""
+        """Unknown service without command gets generic host/port default"""
         service = {"network": {"port": 8080}}
         cmd = get_service_command("unknown-service", service)
-        self.assertEqual(cmd, ["/main"])
+        self.assertEqual(cmd, ["/main", "--host=0.0.0.0", "--port=8080"])
 
     def test_custom_port(self):
         """Custom port should be used in command"""
@@ -519,7 +464,6 @@ def run_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestGetReplicas))
     suite.addTests(loader.loadTestsFromTestCase(TestUserID))
     suite.addTests(loader.loadTestsFromTestCase(TestNetworkConfig))
-    suite.addTests(loader.loadTestsFromTestCase(TestMapStorageVolumes))
     suite.addTests(loader.loadTestsFromTestCase(TestServiceCommand))
     suite.addTests(loader.loadTestsFromTestCase(TestDependsOn))
     suite.addTests(loader.loadTestsFromTestCase(TestDirectoryHash))

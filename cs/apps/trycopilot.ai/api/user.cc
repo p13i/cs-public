@@ -20,6 +20,17 @@
 #include "cs/util/uuid.hh"
 
 namespace {  // use_usings
+using ::cs::Error;
+using ::cs::InvalidArgument;
+using ::cs::ResultOr;
+using ::cs::apps::trycopilotai::api::CreateUserRPC;
+using ::cs::apps::trycopilotai::protos::CreateUserRequest;
+using ::cs::apps::trycopilotai::protos::CreateUserResponse;
+using ::cs::apps::trycopilotai::protos::User;
+using ::cs::net::proto::db::EQUALS;
+using ::cs::net::proto::db::IDatabaseClient;
+using ::cs::net::proto::db::QueryView;
+using ::cs::net::proto::db::Upsert;
 }  // namespace
 
 namespace {  // impl
@@ -41,46 +52,37 @@ std::string HashPassword(std::string password,
 
 namespace cs::apps::trycopilotai::api {
 
-using ::cs::apps::trycopilotai::protos::CreateUserRequest;
-using ::cs::apps::trycopilotai::protos::CreateUserResponse;
-
 IMPLEMENT_RPC(CreateUserRPC, CreateUserRequest,
               CreateUserResponse) {
   if (request.email.empty()) {
     return TRACE(
-        ::cs::InvalidArgument("Email must not be empty."));
+        InvalidArgument("Email must not be empty."));
   }
   if (request.password.empty()) {
-    return TRACE(::cs::InvalidArgument(
-        "Password must not be empty."));
+    return TRACE(
+        InvalidArgument("Password must not be empty."));
   }
   if (request.confirm_password.empty()) {
-    return TRACE(::cs::InvalidArgument(
+    return TRACE(InvalidArgument(
         "Password confirmation must not be empty."));
   }
   if (request.password != request.confirm_password) {
     return TRACE(
-        ::cs::InvalidArgument("Passwords do not match."));
+        InvalidArgument("Passwords do not match."));
   }
 
   SET_OR_RET(auto* ctx, GetContext());
-  auto db =
-      ctx->Get<::cs::net::proto::db::IDatabaseClient>();
+  auto db = ctx->Get<IDatabaseClient>();
   SET_OR_RET(bool user_exists,
-             ::cs::net::proto::db::QueryView<
-                 ::cs::apps::trycopilotai::protos::User>(
-                 "users", db)
-                 .where(::cs::net::proto::db::EQUALS(
-                     &::cs::apps::trycopilotai::protos::
-                         User::email,
-                     request.email))
+             QueryView<User>("users", db)
+                 .where(EQUALS(&User::email, request.email))
                  .any());
   if (user_exists) {
-    return TRACE(::cs::Error(
-        "User with this email already exists."));
+    return TRACE(
+        Error("User with this email already exists."));
   }
 
-  ::cs::apps::trycopilotai::protos::User user;
+  User user;
   user.email = request.email;
   user.password.salt =
       ::cs::util::random::uuid::generate_uuid_v4();
@@ -89,12 +91,10 @@ IMPLEMENT_RPC(CreateUserRPC, CreateUserRequest,
   user.uuid = ::cs::util::random::uuid::generate_uuid_v4();
   user.admin = false;
 
-  OK_OR_RET(::cs::net::proto::db::Upsert(
-      "users", user,
-      *ctx->Get<::cs::net::proto::db::IDatabaseClient>()));
+  OK_OR_RET(
+      Upsert("users", user, *ctx->Get<IDatabaseClient>()));
 
-  ::cs::apps::trycopilotai::protos::CreateUserResponse
-      response;
+  CreateUserResponse response;
   response.email = user.email;
   response.user_uuid = user.uuid;
 
@@ -105,14 +105,10 @@ IMPLEMENT_RPC(CreateUserRPC, CreateUserRequest,
 
 namespace cs::apps::trycopilotai::rpc {
 
-using ::cs::apps::trycopilotai::protos::CreateUserRequest;
-using ::cs::apps::trycopilotai::protos::CreateUserResponse;
-
-::cs::ResultOr<CreateUserResponse> CreateUserRPC::Process(
+ResultOr<CreateUserResponse> CreateUserRPC::Process(
     const CreateUserRequest& request) {
   SET_OR_RET(auto* ctx, GetContext());
-  return ::cs::apps::trycopilotai::api::CreateUserRPC(*ctx)
-      .Process(request);
+  return CreateUserRPC(*ctx).Process(request);
 }
 
 }  // namespace cs::apps::trycopilotai::rpc

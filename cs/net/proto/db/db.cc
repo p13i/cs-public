@@ -16,6 +16,7 @@ using ::cs::InvalidArgument;
 using ::cs::Ok;
 using ::cs::Result;
 using ::cs::ResultOr;
+using ::cs::fs::Join;
 using ::cs::net::json::Object;
 using ::cs::net::json::parsers::ParseObject;
 }  // namespace
@@ -69,9 +70,9 @@ ResultOr<Object> LocalJsonDatabase::get(
     std::string resource_name) {
   SET_OR_RET(ResourceName name,
              ParseResourceName(resource_name));
-  SET_OR_RET(std::string json,
-             cs::fs::read(cs::fs::Join(data_abs_dir_,
-                                       name.file_path)));
+  SET_OR_RET(
+      std::string json,
+      cs::fs::read(Join(data_abs_dir_, name.file_path)));
 
   Object node;
   SET_OR_RET(node, ParseObject(json));
@@ -84,8 +85,8 @@ Result LocalJsonDatabase::set(std::string path,
   std::string enclosing_folder_path =
       path.substr(0, path.find_last_of('/'));
   OK_OR_RET(cs::fs::mkdir(
-      cs::fs::Join(data_abs_dir_, enclosing_folder_path)));
-  return cs::fs::write(cs::fs::Join(data_abs_dir_, path),
+      Join(data_abs_dir_, enclosing_folder_path)));
+  return cs::fs::write(Join(data_abs_dir_, path),
                        obj.str());
 }
 

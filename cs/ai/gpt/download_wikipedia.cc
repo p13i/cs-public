@@ -10,13 +10,19 @@
 #include "cs/result.hh"
 #include "cs/util/fmt.hh"
 
-cs::Result DownloadWikipedia(
-    unsigned int n, const std::string& out_dir_str) {
+namespace {  // use_usings
+using ::cs::Error;
+using ::cs::Result;
+using ::cs::ai::gpt::DownloadMostPopularArticles;
+using ::cs::parsers::ParseUnsignedInt;
+}  // namespace
+
+Result DownloadWikipedia(unsigned int n,
+                         const std::string& out_dir_str) {
   std::filesystem::path out_dir(out_dir_str);
   std::filesystem::create_directories(out_dir);
 
-  SET_OR_RET(auto articles,
-             cs::ai::gpt::DownloadMostPopularArticles(n));
+  SET_OR_RET(auto articles, DownloadMostPopularArticles(n));
 
   for (size_t i = 0; i < articles.size(); ++i) {
     const std::string& html = articles[i];
@@ -53,14 +59,14 @@ cs::Result DownloadWikipedia(
 int main(int argc, char** argv) {
   return cs::Result::Main(
       argc, argv,
-      [](std::vector<std::string> args) -> cs::Result {
+      [](std::vector<std::string> args) -> Result {
         if (args.size() != 3) {
-          return TRACE(cs::Error(
+          return TRACE(Error(
               FMT("Invalid arguments. Usage: ", args[0],
                   " <N> <OUT_DIR>")));
         }
         SET_OR_RET(unsigned int n,
-                   cs::parsers::ParseUnsignedInt(args[1]));
+                   ParseUnsignedInt(args[1]));
         std::filesystem::path out_dir(args[2]);
         return DownloadWikipedia(n, out_dir.string());
       });

@@ -8,14 +8,17 @@
 #include "cs/renderer/precision/floats.hh"
 #include "cs/renderer/shapes/shape.hh"
 
-using r3 = ::cs::renderer::geo::Ray3;
-using v3 = ::cs::renderer::geo::Vector3;
-using p3 = ::cs::renderer::geo::Point3;
+namespace {  // use_usings
 using ::cs::renderer::geo::dot;
+using ::cs::renderer::geo::Point3;
+using ::cs::renderer::geo::Ray3;
+using ::cs::renderer::geo::Vector3;
 using ::cs::renderer::precision::FloatsNear;
+using ::cs::renderer::shapes::Sphere;
+}  // namespace
 
 bool cs::renderer::shapes::Sphere::intersected_by(
-    r3 ray, p3* at_point, v3* at_normal) {
+    Ray3 ray, Point3* at_point, Vector3* at_normal) {
   float a = dot(ray.direction, ray.direction);
   float b = 2 * dot(ray.direction, (ray.origin - center));
   float c =
@@ -41,8 +44,8 @@ bool cs::renderer::shapes::Sphere::intersected_by(
     t_intersect = t1;
   }
 
-  p3 intersection = ray(t_intersect);
-  v3 normal = ((intersection - center) / radius);
+  Point3 intersection = ray(t_intersect);
+  Vector3 normal = ((intersection - center) / radius);
   normal = normal.unit();
 
   *at_point = intersection;

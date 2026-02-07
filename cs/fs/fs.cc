@@ -8,12 +8,14 @@
 #include <sstream>
 #include <string>
 
+namespace {  // use_usings
 using ::cs::Error;
 using ::cs::Ok;
 using ::cs::Result;
 using ::cs::ResultOr;
+}  // namespace
 
-cs::ResultOr<std::vector<std::string>> cs::fs::ls(
+ResultOr<std::vector<std::string>> cs::fs::ls(
     std::string path) {
   std::vector<std::string> files;
   try {
@@ -84,6 +86,16 @@ Result cs::fs::mkdir(std::string path) {
           Error("Directory already exists or could not be "
                 "created."));
     }
+  } catch (const std::filesystem::filesystem_error& e) {
+    return TRACE(Error(e.what()));
+  }
+}
+
+Result cs::fs::rename(std::string old_path,
+                      std::string new_path) {
+  try {
+    std::filesystem::rename(old_path, new_path);
+    return Ok();
   } catch (const std::filesystem::filesystem_error& e) {
     return TRACE(Error(e.what()));
   }

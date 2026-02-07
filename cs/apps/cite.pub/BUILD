@@ -29,7 +29,6 @@ cc_binary(
         "//cs/net/json:serialize",
         "//cs/net/proto/db",
         "//cs/net/proto/db:client",
-        "//cs/net/proto/db:database_base_url",
         "//cs/net/proto/form:proto_form",
         "//cs/net/rpc",
         "//cs/parsers:arg_parser",

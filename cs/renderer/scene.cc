@@ -5,6 +5,10 @@
 
 #include "cs/renderer/geo/dist.hh"
 
+namespace {  // use_usings
+using ::cs::renderer::Scene;
+}  // namespace
+
 bool cs::renderer::Scene::intersected_by(
     const r3 ray, p3* at_point, v3* at_normal) const {
   bool found_intersection = false;

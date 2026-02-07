@@ -16,8 +16,11 @@
 # computed from source files. Docker only rebuilds when source changes.
 # Use 'make expand-check' to see which services need rebuilding.
 
-storage:
+# Named volumes used by services (volume key on service = mount at /data).
+volumes:
   database-volume: {}
+  blob-volume: {}
+  scribe-workspace-volume: {}
 
 services:
   www-trycopilot-ai:
@@ -49,6 +52,8 @@ services:
     type: web-application
     source: cs/apps/cite.pub
 
+    container_name: true
+
     network:
       interface: public
       port: 8080
@@ -66,6 +71,11 @@ services:
   code-viewer:
     type: web-application
     source: cs/apps/code-viewer
+
+    copy_from_stage:
+      - stage: cs-public
+        source: /cs-public
+        dest: /cs-public
 
     network:
       interface: private
@@ -86,18 +96,41 @@ services:
       - --version=${VERSION}
       - --commit=${COMMIT}
 
-  database-service:
-    type: data-store
-    source: cs/apps/database-service
+  data-viewer:
+    type: web-application
+    source: cs/apps/data-viewer
+
+    volume: database-volume
 
     network:
       interface: private
 
-    replicas: 5
+    replicas: 1
 
-    storage:
-      - mount: database-volume
-        access: read-write
+    security:
+      isolation: unprivileged
+
+    config:
+      - VERSION
+      - COMMIT
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --port=8080
+      - --version=${VERSION}
+      - --commit=${COMMIT}
+
+  database-service:
+    type: data-store
+    source: cs/apps/database-service
+
+    volume: database-volume
+
+    network:
+      interface: private
+
+    replicas: 1
 
     security:
       isolation: privileged
@@ -108,9 +141,168 @@ services:
       - --data_dir=/data
       - --port=8080
 
+  message-queue:
+    type: web-application
+    source: cs/apps/message-queue
+
+    network:
+      interface: private
+
+    replicas: 3
+
+    security:
+      isolation: unprivileged
+
+    dependencies:
+      - service: database-service
+        requirement: available
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --port=8080
+
+  task-queue-service:
+    type: web-application
+    source: cs/apps/task-queue-service
+
+    network:
+      interface: private
+
+    replicas: 1
+
+    security:
+      isolation: unprivileged
+
+    dependencies:
+      - service: message-queue
+        requirement: available
+      - service: database-service
+        requirement: available
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --port=8080
+      - --broker_base_url=http://message-queue:8080
+      - --consumer_service=task-queue-service
+      - --database_base_url=http://database-service:8080
+
+  blob-service:
+    type: web-application
+    source: cs/apps/blob-service
+
+    volume: blob-volume
+
+    network:
+      interface: private
+
+    replicas: 3
+
+    security:
+      isolation: unprivileged
+
+    dependencies:
+      - service: database-service
+        requirement: available
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --port=8080
+
+  blob-viewer:
+    type: web-application
+    source: cs/apps/blob-viewer
+
+    volume: blob-volume
+
+    network:
+      interface: private
+
+    replicas: 1
+
+    security:
+      isolation: unprivileged
+
+    config:
+      - VERSION
+      - COMMIT
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --port=8080
+      - --version=${VERSION}
+      - --commit=${COMMIT}
+
+  scribe-service:
+    type: web-application
+    source: cs/apps/scribe-service
+
+    network:
+      interface: private
+
+    replicas: 1
+
+    security:
+      isolation: unprivileged
+
+    dependencies:
+      - service: blob-service
+        requirement: available
+      - service: database-service
+        requirement: available
+      - service: message-queue
+        requirement: available
+
+    command:
+      - /main
+      - --host=0.0.0.0
+      - --port=8080
+      - --blob_base_url=http://blob-service:8080
+      - --database_base_url=http://database-service:8080
+      - --task_queue_base_url=http://message-queue:8080
+
+  scribe-worker:
+    type: web-application
+    source: cs/apps/scribe-worker
+
+    volume: scribe-workspace-volume
+
+    network:
+      interface: private
+
+    replicas: 1
+
+    security:
+      isolation: privileged
+
+    dependencies:
+      - service: blob-service
+        requirement: available
+      - service: scribe-service
+        requirement: available
+      - service: message-queue
+        requirement: available
+
+    mounts:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    command:
+      - /main
+      - --broker_base_url=http://message-queue:8080
+      - --consumer_service=scribe-worker
+      - --blob_base_url=http://blob-service:8080
+      - --database_base_url=http://database-service:8080
+      - --workspace_dir=/data/scribe-workspace
+      - --docker_socket=/var/run/docker.sock
+
   load-balancer:
     type: reverse-proxy
     source: cs/apps/load-balancer
+
+    inject_environment: true
 
     network:
       interface:
@@ -121,6 +313,10 @@ services:
     replicas: 1
 
     dependencies:
+      - service: database-service
+        requirement: available
+      - service: service-registry
+        requirement: available
       - service: www-trycopilot-ai
         requirement: available
       - service: www-cite-pub
@@ -135,6 +331,14 @@ services:
     type: orchestration
     source: cs/apps/service-registry
 
+    container_name: true
+
+    mounts:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    environment:
+      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-cs}
+
     network:
       interface: private
 
@@ -142,6 +346,10 @@ services:
 
     security:
       isolation: privileged
+
+    runtime:
+      packages:
+        - docker.io
 
     command:
       - /main
@@ -166,18 +374,27 @@ services:
         mapping:
           www.trycopilot.ai: www-trycopilot-ai
           code.trycopilot.ai: code-viewer
+          data.trycopilot.ai: data-viewer
+          blob.trycopilot.ai: blob-viewer
           www.cite.pub: www-cite-pub
+          scribe.trycopilot.ai: scribe-service
         prod:
           [
             www.trycopilot.ai,
             code.trycopilot.ai,
-            www.cite.pub
+            data.trycopilot.ai,
+            blob.trycopilot.ai,
+            www.cite.pub,
+            scribe.trycopilot.ai
           ]
         dev:
           [
             dev.www.trycopilot.ai,
             dev.code.trycopilot.ai,
-            dev.www.cite.pub
+            dev.data.trycopilot.ai,
+            dev.blob.trycopilot.ai,
+            dev.www.cite.pub,
+            dev.scribe.trycopilot.ai
           ]
 
     dependencies:
